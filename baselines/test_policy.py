@@ -10,20 +10,34 @@ import joblib
 import numpy as np
 
 import matplotlib
+
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from gym import wrappers
 import tensorflow as tf
-from baselines.ppo1 import mlp_policy, pposgd_simple
+from baselines.ppo1 import mlp_policy, mlp_norms_policy
 import baselines.common.tf_util as U
-import pydart2.utils.transformations as trans
 import json
 
-np.random.seed(1)
+import re
+
+# np.random.seed(10)
+
+state_self_standardize = True
+hsize = 80
+layers = 2
+save_render_data = False
+render_path = 'render_data/' + 'humanoid_run_new'
+
 
 def policy_fn(name, ob_space, ac_space):
-    return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
-                                hid_size=64, num_hid_layers=3, gmm_comp=1)
+    if state_self_standardize:
+        return mlp_norms_policy.MlpNormsPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
+                                               hid_size=hsize, num_hid_layers=layers, gmm_comp=1)
+    else:
+        return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
+                                    hid_size=hsize, num_hid_layers=layers, gmm_comp=1)
+
 
 def save_one_frame_shape(env, fpath, step):
     robo_skel = env.env.robot_skeleton
@@ -34,8 +48,8 @@ def save_one_frame_shape(env, fpath, step):
         if 'cover' in b.name:
             continue
         shape_transform = b.T.dot(b.shapenodes[0].relative_transform()).tolist()
-        #pos = trans.translation_from_matrix(shape_transform)
-        #rot = trans.euler_from_matrix(shape_transform)
+        # pos = trans.translation_from_matrix(shape_transform)
+        # rot = trans.euler_from_matrix(shape_transform)
         shape_class = str(type(b.shapenodes[0].shape))
         if 'Mesh' in shape_class:
             stype = 'Mesh'
@@ -55,16 +69,18 @@ def save_one_frame_shape(env, fpath, step):
                 sub_data[s]['pos'] = sub_data[s]['pos'].tolist()
 
         data.append([stype, b.name, shape_transform, sub_data])
-    file = fpath + '/frame_' + str(step)+'.txt'
+    file = fpath + '/frame_' + str(step) + '.txt'
     json.dump(data, open(file, 'w'))
 
 
 if __name__ == '__main__':
-    save_render_data = False
+
+    sess = tf.InteractiveSession()
+
     interpolate = 0
     prev_state = None
     render_step = 0
-    render_path = 'render_data/' + 'humanoid_walk'
+
     try:
         os.makedirs(render_path)
     except OSError as e:
@@ -89,7 +105,10 @@ if __name__ == '__main__':
     else:
         env_wrapper = env
 
-    sess = tf.InteractiveSession()
+    U.ALREADY_INITIALIZED = set()
+    U.ALREADY_INITIALIZED.update(set(tf.global_variables()))
+
+    # env.env._seed(27)
 
     policy = None
     if len(sys.argv) > 2:
@@ -109,32 +128,15 @@ if __name__ == '__main__':
                 policy_params[policy.get_variables()[i].name.replace(cur_scope, orig_scope, 1)])
             sess.run(assign_op)
 
-        if 'curriculum' in sys.argv[2] and 'policy_params.pkl' in sys.argv[2]:
-            if os.path.isfile(sys.argv[2].replace('policy_params.pkl', 'init_poses.pkl')):
-                init_qs, init_dqs = joblib.load(sys.argv[2].replace('policy_params.pkl', 'init_poses.pkl'))
-                env.env.init_qs = init_qs
-                env.env.init_dqs = init_dqs
-
-        '''ref_policy_params = joblib.load('data/ppo_DartHumanWalker-v1210_energy015_vel65_6s_mirror_up01fwd01ltl15_spinepen1yaw001_thighyawpen005_initbentelbow_velrew3_avg_dcon1_asinput_damping2kneethigh_thigh150knee100_curriculum_1xjoint_shoulder90_dqpen00001/policy_params.pkl')
-        ref_policy = policy_fn("ref_pi", ob_space, ac_space)
-
-        cur_scope = ref_policy.get_variables()[0].name[0:ref_policy.get_variables()[0].name.find('/')]
-        orig_scope = list(ref_policy_params.keys())[0][0:list(ref_policy_params.keys())[0].find('/')]
-        vars = ref_policy.get_variables()
-
-        for i in range(len(ref_policy.get_variables())):
-            assign_op = ref_policy.get_variables()[i].assign(
-                ref_policy_params[ref_policy.get_variables()[i].name.replace(cur_scope, orig_scope, 1)])
-            sess.run(assign_op)
-
-        env.env.ref_policy = ref_policy'''
-
-
-        #init_q, init_dq = joblib.load('data/skel_data/init_states.pkl')
-        #env.env.init_qs = init_q
-        #env.env.init_dqs = init_dq
-
     print('===================')
+
+    final_v_strs = re.findall('fin_r_v\d+\.\d+', sys.argv[2])
+    if final_v_strs:
+        env.env.final_tar_v = float(final_v_strs[0][7:])
+    tar_time_strs = re.findall('tar_ime\d+\.\d+', sys.argv[2])
+    if tar_time_strs:
+        env.env.tar_acc_time = float(tar_time_strs[0][7:])
+    env.env.init_params(None)
 
     o = env_wrapper.reset()
 
@@ -147,28 +149,29 @@ if __name__ == '__main__':
     vel_rew = []
     action_pen = []
     deviation_pen = []
-    ref_rewards = []
-    ref_feat_rew = []
     rew_seq = []
-    com_z = []
-    x_vel = []
-    foot_contacts = []
-    contact_force = []
-    both_contact_forces = []
-    avg_vels = []
-    d=False
-    step = 0
 
+    x_vel = []
+    x_vel2 = []
+    x_vel3 = []
+    # foot_contacts = []
+
+    avg_vels = []
+    meta_costs = []
+    d = False
+    step = 0
     save_qs = []
     save_dqs = []
-    save_init_state = False
 
     while ct < traj:
         if policy is not None:
-            ac, vpred = policy.act(step<0, o)
+            ac, vpred = policy.act(step < 0, o)
+            # ac, vpred = policy.act(True, o)
             act = ac
         else:
             act = env.action_space.sample()
+
+        # time.sleep(0.1)
         actions.append(act)
 
         '''if env_wrapper.env.env.t > 3.0 and env_wrapper.env.env.t < 6.0:
@@ -182,43 +185,33 @@ if __name__ == '__main__':
         rew_seq.append(r)
         if 'deviation_pen' in env_info:
             deviation_pen.append(env_info['deviation_pen'])
-        if 'contact_force' in env_info:
-            contact_force.append(env_info['contact_force'])
-        if 'contact_forces' in env_info:
-            both_contact_forces.append(env_info['contact_forces'])
-        if 'ref_reward' in env_info:
-            ref_rewards.append(env_info['ref_reward'])
-        if 'ref_feat_rew' in env_info:
-            ref_feat_rew.append(env_info['ref_feat_rew'])
         if 'avg_vel' in env_info:
             avg_vels.append(env_info['avg_vel'])
-
-        com_z.append(o[1])
-        foot_contacts.append(o[-2:])
+        if 'meta_cost' in env_info:
+            meta_costs.append(env_info['meta_cost'])
 
         rew += r
+        # foot_contacts.append(o[57:59])
 
         env_wrapper.render()
         step += 1
 
-        #time.sleep(0.1)
-        if len(o) > 25:
-            x_vel.append(env.env.robot_skeleton.dq[0])
+        # time.sleep(0.1)
+        # if len(o) > 25:
+        x_vel.append(env.env.robot_skeleton.dq[0])
+        x_vel2.append(env.env.vel)
+        # print(env.env.vel)
+        x_vel3.append(env.env.target_vel)
 
-        if len(foot_contacts) > 400:
-            if np.random.random() < 0.03:
-                print('q ', np.array2string(env.env.robot_skeleton.q, separator=','))
-                print('dq ', np.array2string(env.env.robot_skeleton.dq, separator=','))
-
-        #if np.abs(env.env.t - env.env.tv_endtime) < 0.01:
-        #    save_qs.append(env.env.robot_skeleton.q)
-            save_dqs.append(env.env.robot_skeleton.dq)
+        save_qs.append(env.env.robot_skeleton.q)
+        save_dqs.append(env.env.robot_skeleton.dq)
 
         if save_render_data:
             cur_state = env.env.state_vector()
             if prev_state is not None and interpolate > 0:
                 for it in range(interpolate):
-                    int_state = (it+1)*1.0/(interpolate+1) * prev_state + (1-(it+1)*1.0/(interpolate+1)) * cur_state
+                    int_state = (it + 1) * 1.0 / (interpolate + 1) * prev_state + (
+                                1 - (it + 1) * 1.0 / (interpolate + 1)) * cur_state
                     env.env.set_state_vector(int_state)
                     save_one_frame_shape(env, render_path, render_step)
                     render_step += 1
@@ -229,60 +222,49 @@ if __name__ == '__main__':
 
         if d:
             step = 0
-            if 'contact_locations' in env_info:
-                c_loc = env_info['contact_locations']
-                for j in range(len(c_loc[0]) - 1):
-                    c_loc[0][j] = c_loc[0][j+1] - c_loc[0][j]
-                for j in range(len(c_loc[1]) - 1):
-                    c_loc[1][j] = c_loc[1][j + 1] - c_loc[1][j]
-                print(np.mean(c_loc[0][0:-1], axis=0))
-                print(np.mean(c_loc[1][0:-1], axis=0))
             ct += 1
             print('reward: ', rew)
-            o=env_wrapper.reset()
-            #break
+            o = env_wrapper.reset()
+            # break
     print('avg rew ', rew / traj)
-    print('total energy penalty: ', np.sum(action_pen)/traj)
-    print('total vel rew: ', np.sum(vel_rew)/traj)
-
-    if 'Walker' in sys.argv[1]: # measure SI for biped
-        l_contact_total = 0
-        r_contact_total = 0
-        for i in range(len(actions)):
-            l_contact_total += np.linalg.norm(actions[i][[0,1,2,3,4,5]])
-            r_contact_total += np.linalg.norm(actions[i][[6,7,8,9,10,11]])
-        print('total forces: ', l_contact_total, r_contact_total)
-        print('SI: ', 2*(l_contact_total-r_contact_total)/(l_contact_total+r_contact_total))
-
-    if len(save_qs) > 0 and save_init_state:
-        joblib.dump([save_qs, save_dqs], 'data/skel_data/init_states.pkl')
+    print('total energy penalty: ', np.sum(action_pen) / traj)
+    print('total vel rew: ', np.sum(vel_rew) / traj)
 
     if sys.argv[1] == 'DartWalker3d-v1' or sys.argv[1] == 'DartWalker3dSPD-v1':
-        rendergroup = [[0,1,2], [3,4,5, 9,10,11], [6,12], [7,8, 12,13]]
+        rendergroup = [[0, 1, 2], [3, 4, 5, 9, 10, 11], [6, 12], [7, 8, 12, 13]]
         for rg in rendergroup:
             plt.figure()
             for i in rg:
                 plt.plot(np.array(actions)[:, i])
     if sys.argv[1] == 'DartHumanWalker-v1':
         rendergroup = [[0,1,2, 6,7,8], [3,9], [4,5,10,11], [12,13,14], [15,16,7,18]]
+        # rendergroup = [[0, 6, ], [3, 9], [4, 10], [12, 13, 14], [15, 16, 7, 18]]
         titles = ['thigh', 'knee', 'foot', 'waist', 'arm']
-        for i,rg in enumerate(rendergroup):
+        for i, rg in enumerate(rendergroup):
+            plt.figure()
+            plt.title(titles[i])
+            for i in rg:
+                plt.plot(np.array(actions)[:, i])
+    if sys.argv[1] == 'DartHumanWalker-v2':
+        rendergroup = [[0, 5, ], [3, 8], [4, 9], [10, 11, 12], [13, 17]]
+        titles = ['thigh', 'knee', 'foot', 'torso', 'shoulder']
+        for i, rg in enumerate(rendergroup):
             plt.figure()
             plt.title(titles[i])
             for i in rg:
                 plt.plot(np.array(actions)[:, i])
     if sys.argv[1] == 'DartDogRobot-v1':
-        rendergroup = [[0,1,2], [3, 4,5], [6,7,8],[9,10,11]]
+        rendergroup = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
         titles = ['rear right leg', 'rear left leg', 'front right leg', 'front left leg']
-        for i,rg in enumerate(rendergroup):
+        for i, rg in enumerate(rendergroup):
             plt.figure()
             plt.title(titles[i])
             for i in rg:
                 plt.plot(np.array(actions)[:, i])
     if sys.argv[1] == 'DartHexapod-v1':
-        rendergroup = [[0,1,2, 3,4,5], [6,7,8, 9,10,11], [12,13,14, 15,16,17]]
+        rendergroup = [[0, 1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 11], [12, 13, 14, 15, 16, 17]]
         titles = ['hind legs', 'middle legs', 'front legs']
-        for i,rg in enumerate(rendergroup):
+        for i, rg in enumerate(rendergroup):
             plt.figure()
             plt.title(titles[i])
             for i in rg:
@@ -295,46 +277,40 @@ if __name__ == '__main__':
     plt.plot(deviation_pen, label='dev pen')
     plt.legend()
     plt.figure()
-    plt.title('com z')
-    plt.plot(com_z)
-    plt.figure()
     plt.title('x vel')
     plt.plot(x_vel)
-    foot_contacts = np.array(foot_contacts)
-    plt.figure()
-    plt.title('foot contacts')
-    plt.plot(1-foot_contacts[:, 0])
-    plt.plot(1-foot_contacts[:, 1])
-    plt.figure()
+    plt.plot(x_vel2)
+    plt.plot(x_vel3)
 
-    if len(contact_force) > 0:
-        plt.title('contact_force')
-        plt.plot(np.array(contact_force)[:,0], label='x')
-        plt.plot(np.array(contact_force)[:,1], label='y')
-        plt.plot(np.array(contact_force)[:,2], label='z')
-        plt.legend()
-    plt.figure()
-    plt.title('ref_rewards')
-    plt.plot(ref_rewards)
-    plt.figure()
-    plt.title('ref_feat_rew')
-    plt.plot(ref_feat_rew)
+    # foot_contacts = np.array(foot_contacts)
+    # plt.figure()
+    # plt.title('foot contacts')
+    # plt.plot(foot_contacts[:, 0])
+    # plt.plot(foot_contacts[:, 1])
+
     plt.figure()
     plt.title('average velocity')
     plt.plot(avg_vels)
-    print('total ref rewards ', np.sum(ref_rewards))
+    plt.figure()
+    plt.title('meta cost')
+    plt.plot(meta_costs)
+
     print('total vel rewrads ', np.sum(vel_rew))
     print('total action rewards ', np.sum(action_pen))
 
+    plt.figure()
+    plt.title("hip angle")
+    plt.plot(np.array(save_qs)[:, 6])
+    plt.plot(np.array(save_qs)[:, 12])
 
-    ################ save average action signals #################
-    avg_action = np.mean(np.abs(actions), axis=1)
-    np.savetxt('data/force_data/action_mean.txt', avg_action)
-    np.savetxt('data/force_data/action_std.txt', np.std(np.abs(actions), axis=1))
+    plt.figure()
+    plt.title("ankle q")
+    plt.plot(np.array(save_qs)[:, 10])
+    plt.plot(np.array(save_qs)[:, 16])
+
+    # ################ save average action signals #################
+    # avg_action = np.mean(np.abs(actions), axis=1)
+    # np.savetxt('data/force_data/action_mean.txt', avg_action)
+    # np.savetxt('data/force_data/action_std.txt', np.std(np.abs(actions), axis=1))
 
     plt.show()
-
-
-
-
-

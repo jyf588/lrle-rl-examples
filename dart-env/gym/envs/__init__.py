@@ -215,34 +215,11 @@ register(
 # Dart
 # ----------------------------------------
 
-
 register(
-    id='DartDogRobot-v1',
-    entry_point='gym.envs.dart:DartDogRobotEnv',
-    max_episode_steps=600,
-)
-
-register(
-    id='DartHexapod-v1',
-    entry_point='gym.envs.dart:DartHexapodEnv',
+    id='DartHumanWalker-v2',
+    entry_point='gym.envs.dart:DartHumanWalkerToeEnv',
     max_episode_steps=500,
 )
-
-
-register(
-    id='DartWalker3d-v1',
-    entry_point='gym.envs.dart:DartWalker3dEnv',
-    max_episode_steps=500,
-)
-
-
-register(
-    id='DartHumanWalker-v1',
-    entry_point='gym.envs.dart:DartHumanWalkerEnv',
-    max_episode_steps=500,
-)
-
-
 
 # Mujoco
 # ----------------------------------------
