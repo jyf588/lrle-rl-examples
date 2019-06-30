@@ -95,7 +95,7 @@ def train_mirror(args, num_timesteps):
         if iter_num == 0:
             reward_threshold = 0.7 * rew
         if last_iter:
-            reward_threshold = None
+            break
         iter_num += 1
 
         opt_variable = opt_pi.get_variables()
@@ -120,6 +120,7 @@ def train_mirror(args, num_timesteps):
         print('Current Schedule: ', env.env.env.assist_schedule)
         if zero_assist:
             last_iter = True
+            reward_threshold = None
             print('Entering Last Iteration!')
             env.env.add_flex_q_noise = False        #TODO
 
@@ -161,7 +162,7 @@ def main():
             logdir += arg[-3:]
             logdir += str(getattr(args, arg))
     logger.configure(logdir)
-    train_mirror(args, num_timesteps=int(5000*4*800))
+    train_mirror(args, num_timesteps=int(2500*8*500))
 
 
 if __name__ == '__main__':
