@@ -94,7 +94,7 @@ def train_mirror(args, num_timesteps):
     f.close()
     shutil.copyfile(env.env.env.model_file_name, logger.get_dir() + '/using_model.skel')
 
-    cur_sym_loss = 4.0
+    cur_sym_loss = 1.0
     iter_num = 0
     previous_params = None
     # previous_params = joblib.load('')
