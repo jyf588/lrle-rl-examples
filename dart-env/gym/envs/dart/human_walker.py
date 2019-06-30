@@ -200,7 +200,7 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
             if self.muscle_add_energy_cost:
                 self.EWmats, self.EBmats = load_model_weights(self.modelE_path)
 
-        print(self.__dict__)
+        # print(self.__dict__)
 
     # only 1d
     def _spd(self, target_q, id, kp, target_dq=None):
