@@ -160,19 +160,34 @@ Note: reading the following few files (instead of the whole repo) will suffice i
 This branch is thus deprecated and left here only for reproducing the siggraph paper results. The training here uses curriculum and follows exactly the same pipeline as in previous work: https://arxiv.org/abs/1801.08093
 
 Walking training:
-LR+LE:  mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.5 --HW_muscle_add_tor_limit=True --HW_muscle_add_energy_cost=True
-LR: mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.5 --HW_muscle_add_tor_limit=True 
-BOX: mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.5
-AMTU: mpirun -np 8 python -m baselines.ppo1.run_humanoid_MD_staged_learning --seed=xxx --HW_energy_weight=0.5
+LR+LE:  
+```
+mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.5 --HW_muscle_add_tor_limit=True --HW_muscle_add_energy_cost=True
+```
+LR: 
+```mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.5 --HW_muscle_add_tor_limit=True 
+```
+BOX: 
+```mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.5
+```
+AMTU: 
+```mpirun -np 8 python -m baselines.ppo1.run_humanoid_MD_staged_learning --seed=xxx --HW_energy_weight=0.5
+```
 
 Note 1: there is a bug with the argparse library: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse, and setting --HW_muscle_add_tor_limit=False will not work.
 
 Note 2: argument —HW_energy_weight<0.4 will usually result in hopping motion
 
 Running training:
-LR+LE: mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.45 --HW_muscle_add_tor_limit=True --HW_muscle_add_energy_cost=True --HW_final_tv=3.5 --HW_tv_endtime=2.0
-LR: mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.45 --HW_muscle_add_tor_limit=True  --HW_final_tv=3.5 --HW_tv_endtime=2.0
-BOX: mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.45 --HW_final_tv=3.5 --HW_tv_endtime=2.0
+LR+LE: 
+```mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.45 --HW_muscle_add_tor_limit=True --HW_muscle_add_energy_cost=True --HW_final_tv=3.5 --HW_tv_endtime=2.0
+```
+LR: 
+```mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.45 --HW_muscle_add_tor_limit=True  --HW_final_tv=3.5 --HW_tv_endtime=2.0
+```
+BOX: 
+```mpirun -np 8 python -m baselines.ppo1.run_humanoid_staged_learning --seed=xxx --HW_energy_weight=0.45 --HW_final_tv=3.5 --HW_tv_endtime=2.0
+```
 AMTU: fails to learn running
 
 Testing and visualizing trained policy:
