@@ -6,3 +6,4 @@ from gym.envs.dart.walker3d import DartWalker3dEnv
 from gym.envs.dart.dog_robot import DartDogRobotEnv
 from gym.envs.dart.human_walker import DartHumanWalkerEnv
 from gym.envs.dart.hexapod import DartHexapodEnv
+from gym.envs.dart.human_walker_MD import DartHumanWalkerMDEnv

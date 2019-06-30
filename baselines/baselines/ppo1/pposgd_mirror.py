@@ -116,6 +116,8 @@ def learn(env, policy_func, *,
          rollout_length_thershold = None 
         ):
 
+    # low_en = True
+
     # Setup losses and stuff
     # ----------------------------------------
     ob_space = env.observation_space
@@ -228,6 +230,10 @@ def learn(env, policy_func, *,
 
         seg = seg_gen.__next__()
 
+        # if low_en and np.mean(lenbuffer) >= 50 and policy_scope == 'pi0':
+        #     env.env.env.energy_weight += 0.1
+        #     low_en = False
+
         if reward_drop_bound is not None:
             lrlocal = (seg["ep_lens"], seg["ep_rets"])  # local values
             listoflrpairs = MPI.COMM_WORLD.allgather(lrlocal)  # list of tuples
@@ -271,7 +277,6 @@ def learn(env, policy_func, *,
                     if np.abs(seg["rew"][i] - seg["pos_rews"][i] - seg["neg_pens"][i]) > 1e-5:
                         print(seg["rew"][i], seg["pos_rews"][i] , seg["neg_pens"][i])
                         print('Reward wrong!')
-                        abc
                     seg["rew"][i] = seg["pos_rews"][i] + seg["neg_pens"][i] * adjust_ratio
         add_vtarg_and_adv(seg, gamma, lam)
 

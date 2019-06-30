@@ -23,7 +23,7 @@ import json
 
 def policy_fn(name, ob_space, ac_space):
     return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
-                                hid_size=64, num_hid_layers=3, gmm_comp=1)
+                                hid_size=128, num_hid_layers=3, gmm_comp=1)
 
 def save_one_frame_shape(env, fpath, step):
     robo_skel = env.env.robot_skeleton
@@ -142,27 +142,6 @@ if __name__ == '__main__':
 
     print('===================')
 
-
-    #TODO: set env params here
-    #
-    env.env.muscle_add_tor_limit = True
-    env.env.add_flex_noise_q = True
-    # env.env.action_scale = np.array([160.0, 60, 60, 100, 80, 60, 160, 60, 60, 100, 80, 60,
-    #                                   150, 150, 100,
-    #                                   100, 15, 15, 30, 100,15,15, 30])
-
-    # env.env.action_scale = np.array([200.0, 60, 60, 200, 200, 60, 200, 60, 60, 200, 200, 60,
-    #                               150, 150, 100,
-    #                               100, 15, 15, 30, 100, 15, 15, 30])
-    env.env.muscle_add_energy_cost = True
-
-    env.env.energy_weight = 0.5
-    # env.env.alive_bonus_rew = 9.0
-    # env.env.residue_pen = 10.0
-    env.env.final_tv = 1.5
-    env.env.tv_endtime = 1.2
-    env.env.init_params(None)
-
     o = env_wrapper.reset()
 
     rew = 0
@@ -191,10 +170,26 @@ if __name__ == '__main__':
     save_dqs = []
     save_init_state = False
 
+    #TODO: set env params here
+    #
+    # env.env.muscle_add_tor_limit = True
+    # env.env.enlarge_box = True
+    env.env.add_flex_noise_q = True
+    # env.env.action_scale = np.array([160.0, 60, 60, 100, 80, 60, 160, 60, 60, 100, 80, 60,
+    #                                   150, 150, 100,
+    #                                   100, 15, 15, 30, 100,15,15, 30])
+    # env.env.muscle_add_energy_cost = True
+
+    env.env.energy_weight = 0.5
+    # env.env.alive_bonus = 9.0
+    env.env.final_tv = 1.5
+    env.env.tv_endtime = 1.2
+    env.env.init_params(None)
+
     env.env.assist_timeout = 0.0
     env.env.assist_schedule = [[0.0, [2000.0, 2000]], [3.0, [1500.0, 1500]], [6.0, [1125.0, 1125]]]
     # env.env.assist_schedule = [[0.0, [112.62702942, 112.62702942]], [3.0, [84.47027206, 84.47027206]],
-    #  [6.0, [63.35270404815674, 63.35270404815674]]]
+     # [6.0, [63.35270404815674, 63.35270404815674]]]
     # env.env.assist_schedule = [[0.0, [2000.0 / 10, 2000 / 10]], [3.0, [1500.0 / 10, 1500 / 10]],
     #                            [6.0, [1125.0 / 10, 1125 / 10]]]
     # env.env.assist_schedule = [[0.0, [632.8125, 632.8125]], [3.0, [474.609375, 474.609375]], [6.0, [355.95703125, 355.95703125]]]
@@ -235,8 +230,6 @@ if __name__ == '__main__':
             both_contact_forces.append(env_info['contact_forces'])
         if 'avg_vel' in env_info:
             avg_vels.append(env_info['avg_vel'])
-        if 'meta_cost' in env_info:
-            meta_costs.append(env_info['meta_cost'])
 
         com_z.append(o[1])
         foot_contacts.append(o[-2:])
@@ -368,21 +361,17 @@ if __name__ == '__main__':
     plt.figure()
     plt.title('average velocity')
     plt.plot(avg_vels)
-    plt.title('meta cost')
-    plt.plot(meta_costs)
     print('total ref rewards ', np.sum(ref_rewards))
     print('total vel rewrads ', np.sum(vel_rew))
     print('total action rewards ', np.sum(action_pen))
 
     plt.figure()
-    plt.title("hip angle")
-    plt.plot(np.array(save_qs)[:,7])
-    plt.plot(np.array(save_qs)[:, 13])
+    plt.title("ankle angle")
+    plt.plot(np.array(save_qs)[:,10])
 
     plt.figure()
-    plt.title("ankle q")
-    plt.plot(np.array(save_qs)[:,11])
-    plt.plot(np.array(save_qs)[:, 17])
+    plt.title("ankle vel")
+    plt.plot(np.array(save_dqs)[:,10])
 
     # ################ save average action signals #################
     # avg_action = np.mean(np.abs(actions), axis=1)

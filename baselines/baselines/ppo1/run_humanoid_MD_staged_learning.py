@@ -43,19 +43,22 @@ def train_mirror(args, num_timesteps):
     U.ALREADY_INITIALIZED.update(set(tf.global_variables()))
 
     def policy_fn(name, ob_space, ac_space):
+        old_act_permute = [-86, 87, -88, 93, 94, 95, 96, 89, 90, 91, 92, 98, 97]
+        mus_act_l = np.arange(43)
+        mus_act_r = mus_act_l + 43
+        mus_act_l[0] = 0.001
+        act_permute = np.concatenate([mus_act_r, mus_act_l, old_act_permute])
         return mlp_mirror_policy.MlpMirrorPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
-                                                 hid_size=64, num_hid_layers=3, gmm_comp=1,
+                                                 hid_size=128, num_hid_layers=3, gmm_comp=1,
                                                  mirror_loss=True,
                                                  observation_permutation=np.array(
-                                                     [0.0001, -1, 2, -3, -4, 
-                                                      11, 12, 13, 14, 15, 16, 5, 6, 7, 8, 9, 10, -17, 18, -19, 
+                                                     [0.0001, -1, 2, -3, -4,
+                                                      11, 12, 13, 14, 15, 16, 5, 6, 7, 8, 9, 10, -17, 18, -19,
                                                       24, 25, 26, 27, 20, 21, 22, 23, \
-                                                      28, 29, -30, 31, -32, -33, 
-                                                      40, 41, 42, 43, 44, 45, 34, 35, 36, 37, 38, 39, -46, 47, -48, 
+                                                      28, 29, -30, 31, -32, -33,
+                                                      40, 41, 42, 43, 44, 45, 34, 35, 36, 37, 38, 39, -46, 47, -48,
                                                       53, 54, 55, 56, 49, 50, 51, 52, 58, 57, 59]),
-                                                 action_permutation=np.array(
-                                                     [6, 7, 8, 9, 10, 11, 0.0001, 1, 2, 3, 4, 5, -12, 13, -14, 
-                                                      19, 20, 21, 22, 15, 16, 17, 18]))
+                                                 action_permutation=act_permute)
     env = bench.Monitor(env, logger.get_dir() and
         osp.join(logger.get_dir(), "monitor.json"), allow_early_resets=True)
     env.seed(args.seed+MPI.COMM_WORLD.Get_rank())
@@ -67,7 +70,7 @@ def train_mirror(args, num_timesteps):
 
     # if initialize from previous runs
     #previous_params = joblib.load('')
-    env.env.env.assist_schedule = [[0.0, [1000.0, 1000]], [3.0, [750.0, 750]], [6.0, [565.0, 565]]]
+    #env.env.env.assist_schedule = []
 
     joblib.dump(str(env.env.env.__dict__), logger.get_dir() + '/env_specs.pkl', compress=True)
 
@@ -121,27 +124,24 @@ def train_mirror(args, num_timesteps):
         if zero_assist:
             last_iter = True
             print('Entering Last Iteration!')
-            env.env.add_flex_q_noise = False        #TODO
+            env.env.add_flex_q_noise = False  # TODO
 
     env.close()
+
 
 def main():
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--env', help='environment ID', default='DartHumanWalker-v1')
+    parser.add_argument('--env', help='environment ID', default='DartHumanWalkerMD-v1')
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
-    parser.add_argument('--HW_muscle_add_tor_limit', help='use NN Torque Limit or Not', type=bool, default=False)
-    parser.add_argument('--HW_muscle_add_energy_cost', help='use NN Metabolic Cost or Not', type=bool, default=False)
-    # parser.add_argument('--HW_enlarge_box', help='enlarge box torque limit for NN or Not', type=bool, default=True)
-    # parser.add_argument('--HW_residue_pen', help='penalize use of residue', type=float, default=8.0)
     parser.add_argument('--HW_add_flex_noise_q', help='add noise to hip flex q?', type=bool, default=True)
     parser.add_argument('--HW_final_tv', help='final target velocity', type=float, default=1.5)
     parser.add_argument('--HW_tv_endtime', help='time to acc to final target velocity', type=float, default=1.2)
-    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.4)
+    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.1)
     parser.add_argument('--HW_alive_bonus_rew', help='alive bonus weight', type=float, default=9.0)
     parser.add_argument('--HW_vel_reward_weight', help='velocity pen weight', type=float, default=4.5)
     parser.add_argument('--HW_side_devia_weight', help='side deviation pen weight', type=float, default=3.0)
-    parser.add_argument('--HW_rot_pen_weight', help='rotation pen weight', type=float, default=0.3)
+    parser.add_argument('--HW_rot_pen_weight', help='rotation pen weight', type=float, default=0.0)
     parser.add_argument('--HW_abd_pen_weight', help='abdomen dof pen weight', type=float, default=1.0)
     parser.add_argument('--HW_spl_pen_weight', help='spine dof pen weight', type=float, default=0.5)
     parser.add_argument('--HW_angle_pen_weight', help='tilt angle pen weight', type=float, default=0.8)
@@ -153,7 +153,7 @@ def main():
     now = datetime.datetime.now()
     stampstring = now.isoformat()
 
-    logdir = 'data/meta1502_20060_ankledq7_fixupper035_ppo_'+stampstring[:16]+args.env+'_'+str(args.seed)
+    logdir = 'data/ppo_humanMD_'+stampstring[:16]+args.env+'_'+str(args.seed)
     for arg in vars(args):
         if arg[:3] == 'HW_':
             logdir += arg[2:6]

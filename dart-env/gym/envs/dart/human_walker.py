@@ -1,125 +1,175 @@
-__author__ = 'yuwenhao'
+__author__ = 'yifengjiang'
 
 import numpy as np
 from gym import utils
 from gym.envs.dart import dart_env
-import joblib
 import os
 
-import time
-
 import pydart2 as pydart
+
+from keras.models import load_model
+
+# import matplotlib
+# matplotlib.use('TkAgg')
+# import matplotlib.pyplot as plt
+
+
+def load_model_weights(pathname):
+    W = []
+    B = []
+    from os import path
+    if pathname.startswith("/"):
+        fullpath = pathname
+    else:
+        fullpath = os.path.join(os.path.dirname(__file__), "assets", pathname)
+    if not path.exists(fullpath):
+        raise IOError("File %s does not exist" % fullpath)
+    model = load_model(fullpath)
+    # NOTE! assume no act final layer
+    for i in range(0, len(model.layers)):
+        # workaround for dropout layers
+        ws = model.layers[i].get_weights()
+        if len(ws) > 0:
+            W.append(ws[0])
+            B.append(ws[1])
+
+    return W, B
+
+
+def neural_net_regress_elu(x, Wmats, Bmats, input_mult=None, output_mult=None):
+    if input_mult is None:
+        input_mult = np.ones(Wmats[0].shape[0])
+    if output_mult is None:
+        output_mult = np.ones(Bmats[-1].shape[0])   # B is 1D anyways
+
+    x = x * input_mult
+    wxb = x[np.newaxis, :]
+    for i in range(0, len(Wmats)):
+        wxb = wxb.dot(Wmats[i]) + Bmats[i]
+        if i != (len(Wmats) - 1):
+            wxb = np.exp(wxb*(wxb<=0))-1 + wxb*(wxb>0)
+
+    return wxb[0, :]*output_mult
 
 
 class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
     def __init__(self):
+
+        self.metadata = {
+            "render.modes": ['human', 'rgb_array'],
+            "video.frames_per_second": 33
+        }
+
+        # action related params
         self.control_bounds = np.array([[1.0] * 23, [-1.0] * 23])
-        self.action_scale = np.array([60.0, 160, 60, 100, 80, 60, 60, 160, 60, 100, 80, 60, 150, 150, 100, 15,100,15, 30, 15,100,15, 30])
-        self.action_scale *= 1.0
-        self.action_penalty_weight = np.array([1.0]*23)#np.array([1.0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+
+        # self.action_scale = np.array([160.0, 60, 60, 100, 80, 60, 160, 60, 60, 100, 80, 60,
+        #                               150, 150, 100,
+        #                               100, 15, 15, 30, 100,15,15, 30])  # default tor lim without NN
+        self.action_scale = np.array([200.0, 60, 60, 200, 200, 60, 200, 60, 60, 200, 200, 60,
+                                      150, 150, 100,
+                                      100, 15, 15, 30, 100, 15, 15, 30])
+        # # TODO: changed in rot to 0.6, change maybe box limit form 60 to 100
+        # self.action_scale = np.array([200.0, 100, 100, 200, 200, 60, 200, 100, 100, 200, 200, 60,
+        #                               150, 150, 100,
+        #                               100, 15, 15, 30, 100, 15, 15, 30])
+
         obs_dim = 57
 
         self.t = 0
-        self.target_vel = 0.0
-        self.init_tv = 0.0
-        self.final_tv = 1.5
-        self.tv_endtime = 1.0
-        self.tvel_diff_perc = 1.0
-        self.smooth_tv_change = True
-        self.running_average_velocity = False
-        self.running_avg_rew_only = True
-        self.avg_rew_weighting = []
+        self.cur_step = 0
+
+        # muscle model init
+        self.muscle_add_tor_limit = False   # set outside   #TODO
+        # self.modelR_path = 'neuralnets/InOutR_1_5M_3D_-0915&-0606&-0606&-2101&-0909_dq555&10&15_tau200&100&100&200&200_2392_dec31_elu_2.h5'
+        self.modelR_path = 'neuralnets/InOutR_1Maddvalid600k_3D_q-0920&-0606&-0602&-2501&-1010_dq555&10&15_tau200&60&60&200&200_2392_dec8_elu.h5'
+        self.RWmats = []
+        self.RBmats = []
+
+        self.muscle_add_energy_cost = False # set outside
+        # self.modelE_path = 'neuralnets/InOutE_Valid_3D_q-0920&-0606&-0602&-2501&-1010_dq555&10&15_tau200&60&60&200&200_2392_dec8_18012864elu_mse_4%.h5'
+        # self.modelE_path = 'neuralnets/InOutE_ValidInv_3D_q-0915&-0606&-0602&-2101&-0909_dq555&10&15_tau200&100&100&200&200_2392_dec26_512360128elu_mse_fix_10%.h5'
+        # self.modelE_path = 'neuralnets/InOutE_ValidInv_3D_q-0915&-0606&-0602&-2101&-0909_dq555&10&15_tau200&100&100&200&200_2392_dec29_512360128elu_mse_fix_simple.h5'
+        # self.modelE_path = 'neuralnets/InOutE_Valid_3D_q-0915&-0606&-0602&-2101&-0909_dq555&10&15_tau200&100&100&200&200_2392_dec29_18012864lu_mse_fix_simple.h5'
+        self.modelE_path = 'neuralnets/InOutE_Valid_3D_q-0915&-0606&-0606&-2101&-0909_dq555&10&15_tau200&100&100&200&200_2392_dec31_18012864lu_mse_fix_simple_as.h5'
+        self.EWmats = []
+        self.EBmats = []
+
+        # # TODO: for DEBUG only
+        # fullpath = os.path.join(os.path.dirname(__file__), "assets", self.modelR_path)
+        # self.modelR = load_model(fullpath)
+        # fullpath = os.path.join(os.path.dirname(__file__), "assets", self.modelE_path)
+        # self.modelE = load_model(fullpath)
+        # self.ankle_taus = []
+        # self.ankle_dq = []
+        # self.ankle_q = []
+        # self.dy = []
+        # self.residues = []
+        # self.energys = []
+
+        self.add_flex_noise_q = True    # set outside
+
+        # muscle model related params
+        self.input_mult = np.ones(15)
+        self.input_mult[5:9] /= 2.5
+        self.input_mult[9:10] /= 7.5
+        self.input_mult[10:15] /= 100.0
+        # dq is trained in 555,10,15
+        self.dq_clip = np.array([5.0, 5, 5, 10, 15])
+        self.output_mult_E = np.array([100.0])
+
+        # reward related
+        self.energy_weight = 0.3  # set outside
+        self.alive_bonus_rew = 9.0  # set outside
+        self.vel_reward_weight = 4.5  # set outside
+        self.side_devia_weight = 3.0   # set outside
+        self.rot_pen_weight = 0.3  # set outside
+        self.abd_pen_weight = 1.0   # set outside
+        self.spl_pen_weight = 0.5   # set outside
+        self.angle_pen_weight = 0.8     # set outside
+
+        # need to calc residue when using meta energy based on actual(not proposed) tau
+        self.total_residue = 0.0
+        self.meta_cost = 0.0
+        self.ignore_energy = 2000.0
+        self.up_energy = 15000.0
+        self.residue_pen = 9.0   #TODO
+
         self.vel_cache = []
-        self.init_pos = 0
-        self.pos_spd = False # Use spd on position in forward direction. Only use when treadmill is used
-        self.assist_timeout = 0.0  # do not provide pushing assistance after certain time
-        self.assist_schedule = [[0.0, [2000, 2000]], [3.0, [1500, 1500.0]], [6.0, [1125, 1125]]]
+        self.target_vel_cache = []
+        self.dq_cache_l = []
+        self.dq_cache_r = []
+        self.ankle_vel_cache_long = []
 
-        self.rand_target_vel = False
-        self.init_push = False
-        self.enforce_target_vel = True
-        self.const_force = None
-        self.hard_enforce = False
-        self.treadmill = False
-        self.treadmill_vel = -self.init_tv
-        self.treadmill_init_tv = -0.0
-        self.treadmill_final_tv = -4.5
-        self.treadmill_tv_endtime = 6.0
-
-        self.base_policy = None
+        # assistance related
+        self.assist_timeout = 0.0  # do not provide pushing assistance after certain time # set outside
+        self.assist_schedule = [[0.0, [2000.0, 2000]], [3.0, [1500.0, 1500]], [6.0, [1125.0, 1125]]]
+        self.current_pd = None
+        self.vel_enforce_kp = None
+        self.init_tv = 0.0
+        self.final_tv = 1.5  # set outside
+        self.tv_endtime = 1.2  # set outside
+        self.target_vel = None
+        self.tvel_diff_perc = 1.0
         self.push_target = 'pelvis'
 
-        self.constrain_dcontrol = 1.0
         self.previous_control = None
+        self.constrain_dcontrol = 1.0
 
-        self.total_act_force = 0
-        self.total_ass_force = 0
-
-        self.energy_weight = 0.3
-        self.alive_bonus_rew = 9.0
-
-        self.cur_step = 0
-        self.stepwise_rewards = []
-        self.conseq_limit_pen = 0  # number of steps lying on the wall
-        self.constrain_2d = True
-        self.init_balance_pd = 6000.0
-        self.init_vel_pd = 3000.0
-        self.end_balance_pd = 6000.0
-        self.end_vel_pd = 3000.0
-
-        self.pd_vary_end = self.target_vel * 6.0
-        self.current_pd = self.init_balance_pd
-        self.vel_enforce_kp = self.init_vel_pd
-
-        self.local_spd_curriculum = True
-        self.anchor_kp = np.array([2000.0, 1000.0])
-        self.curriculum_step_size = 0.1  # 10%
-        self.min_curriculum_step = 50  # include (0, 0) if distance between anchor point and origin is smaller than this value
-
-        # state related
-        self.contact_info = np.array([0, 0])
-        self.contact_locations = [[], []]
+        # additional states
         self.include_additional_info = True
+        self.contact_info = np.array([0, 0])
         if self.include_additional_info:
             obs_dim += len(self.contact_info)
-        if self.running_average_velocity or self.smooth_tv_change:
-            obs_dim += 1
+            obs_dim += 1  # target vel
 
-        self.curriculum_id = 0
-        self.spd_kp_candidates = None
-
-        self.vel_reward_weight = 3.0
-        self.stride_weight = 0.0
-
-        self.init_qs = []
-        self.init_dqs = []
-
-        if self.treadmill:
-            dart_env.DartEnv.__init__(self, 'kima/kima_human_edited_treadmill.skel', 15, obs_dim, self.control_bounds,
-                                      disableViewer=True, dt=0.002)
-        else:
-            dart_env.DartEnv.__init__(self, 'kima/kima_human_edited.skel', 15, obs_dim, self.control_bounds,
-                                      disableViewer=True, dt=0.002)
-
-        # add human joint limit
-        '''skel = self.robot_skeleton
-        world = self.dart_world
-        leftarmConstraint = pydart.constraints.HumanArmJointLimitConstraint(skel.joint('j_bicep_left'),
-                                                                            skel.joint('j_forearm_left'), False)
-        rightarmConstraint = pydart.constraints.HumanArmJointLimitConstraint(skel.joint('j_bicep_right'),
-                                                                             skel.joint('j_forearm_right'), True)
-        leftlegConstraint = pydart.constraints.HumanLegJointLimitConstraint(skel.joint('j_thigh_left'),
-                                                                            skel.joint('j_shin_left'),
-                                                                            skel.joint('j_heel_left'), False)
-        rightlegConstraint = pydart.constraints.HumanLegJointLimitConstraint(skel.joint('j_thigh_right'),
-                                                                             skel.joint('j_shin_right'),
-                                                                             skel.joint('j_heel_right'), True)
-        leftarmConstraint.add_to_world(world)
-        rightarmConstraint.add_to_world(world)
-        leftlegConstraint.add_to_world(world)
-        rightlegConstraint.add_to_world(world)'''
+        dart_env.DartEnv.__init__(self, 'kima/kima_human_opensim_musclespring.skel', 15, obs_dim, self.control_bounds,
+                                  disableViewer=True, dt=0.002)
 
         self.robot_skeleton.set_self_collision_check(True)
+        self.robot_skeleton.set_adjacent_body_check(False)
+
+        self.init_height = self.robot_skeleton.bodynode('head').C[1]
 
         for i in range(0, len(self.dart_world.skeletons[0].bodynodes)):
             self.dart_world.skeletons[0].bodynodes[i].set_friction_coeff(20)
@@ -134,23 +184,23 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
             if len(bn.shapenodes) > 0:
                 if hasattr(bn.shapenodes[0].shape, 'size'):
                     shapesize = bn.shapenodes[0].shape.size()
-                    print('density of ', bn.name, ' is ', bn.mass()/np.prod(shapesize))
+                    print('density of ', bn.name, ' is ', bn.mass() / np.prod(shapesize))
         print('Total mass: ', self.robot_skeleton.mass())
 
-        self.use_ref_policy = False
-        self.ref_policy = None
-        self.ref_policy_curriculum = np.array([2000, 1000])
-        self.ref_strength_q = 0.005
-        self.ref_strength_dq = 0.0005
-        self.ref_feat_strength = 0.25
-        self.ref_dfeat_strength = 0.025
-        self.ref_trajs = []
-        self.ref_features = []
-        self.chosen_traj = [0, 0]
-        self.max_eps_step_ref = 100 # maximum episode step when using reference policy
-        self.ref_traj_num = 10
-
         utils.EzPickle.__init__(self)
+
+    def init_params(self, args):
+        if args is not None:
+            for arg in vars(args):
+                if arg[:3] == 'HW_' and hasattr(self, arg[3:]):
+                    setattr(self, arg[3:], getattr(args, arg))
+
+        if self.muscle_add_tor_limit:
+            self.RWmats, self.RBmats = load_model_weights(self.modelR_path)
+            if self.muscle_add_energy_cost:
+                self.EWmats, self.EBmats = load_model_weights(self.modelE_path)
+
+        print(self.__dict__)
 
     # only 1d
     def _spd(self, target_q, id, kp, target_dq=None):
@@ -189,50 +239,94 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
         return tau
 
     def do_simulation(self, tau, n_frames):
-        for _ in range(n_frames):
-            force = 0
-            if self.constrain_2d and (self.t < self.assist_timeout):
+        self.total_residue = 0.0
+        self.meta_cost = 0.0
+        residue_l = np.zeros([5])
+        residue_r = np.zeros([5])
+        for frame in range(n_frames):
+            if self.t < self.assist_timeout:
                 force = self._bodynode_spd(self.robot_skeleton.bodynode(self.push_target), self.current_pd, 2)
                 self.robot_skeleton.bodynode(self.push_target).add_ext_force(np.array([0, 0, force]))
 
-            if self.enforce_target_vel and (self.t < self.assist_timeout) and not self.hard_enforce:
-                tvel = self.target_vel
-                if self.treadmill:
-                    tvel += self.treadmill_vel
-                if self.const_force is None:
-                    force = self._bodynode_spd(self.robot_skeleton.bodynode(self.push_target), self.vel_enforce_kp, 0,
-                                           tvel * self.tvel_diff_perc)
-                else:
-                    if self.robot_skeleton.bodynode(self.push_target).dC[0] < tvel*0.5:
-                        force = self.const_force
-                    else:
-                        force = 0
-                self.push_forces.append(force)
+                force = self._bodynode_spd(self.robot_skeleton.bodynode(self.push_target), self.vel_enforce_kp, 0,
+                                           self.target_vel * self.tvel_diff_perc)
                 self.robot_skeleton.bodynode(self.push_target).add_ext_force(np.array([force, 0, 0]))
-            self.total_act_force += np.linalg.norm(tau)
 
-            self.total_ass_force += np.abs(force)
+            tau_revised = np.copy(tau)
 
-            self.robot_skeleton.set_forces(tau)
+            self.dq_cache_l.append(self.robot_skeleton.dq[6:11])
+            self.dq_cache_r.append(self.robot_skeleton.dq[12:17])
+            self.ankle_vel_cache_long.append(self.robot_skeleton.dq[[11, 17]])
+
+            if len(self.dq_cache_l) > 3:  # TODO
+                self.dq_cache_l.pop(0)
+                self.dq_cache_r.pop(0)
+            if len(self.ankle_vel_cache_long) > 7:     #TODO
+                self.ankle_vel_cache_long.pop(0)
+
+            if self.muscle_add_tor_limit:
+                if frame % 5 == 0:  # Assume residue will not change in this 0.01s
+                    dq_in_l = np.clip(np.mean(self.dq_cache_l, axis=0), -self.dq_clip, self.dq_clip)
+                    cr_in_l = np.concatenate([self.robot_skeleton.q[6:11], dq_in_l, tau[6:11]])
+                    residue_l = neural_net_regress_elu(cr_in_l, self.RWmats, self.RBmats, input_mult=self.input_mult)
+                    self.total_residue += np.linalg.norm(residue_l - np.clip(residue_l, -10.0, 10.0))
+
+                    dq_in_r = np.clip(np.mean(self.dq_cache_r, axis=0), -self.dq_clip, self.dq_clip)
+                    cr_in_r = np.concatenate([self.robot_skeleton.q[12:17], dq_in_r, tau[12:17]])
+                    residue_r = neural_net_regress_elu(cr_in_r, self.RWmats, self.RBmats, input_mult=self.input_mult)
+                    self.total_residue += np.linalg.norm(residue_r - np.clip(residue_r, -10.0, 10.0))
+
+                    if self.muscle_add_energy_cost:
+                        cr_in_l[10:15] -= residue_l
+                        cr_in_l[9] = np.mean(self.ankle_vel_cache_long, axis=0)[0]      # TODO
+                        energy_rate = neural_net_regress_elu(cr_in_l, self.EWmats, self.EBmats, input_mult=self.input_mult,
+                                                             output_mult=self.output_mult_E)
+                        self.meta_cost += np.maximum(energy_rate[0] - self.ignore_energy, 0.0)  # energy_rate is a size-1 1D array
+                        cr_in_r[10:15] -= residue_r
+                        cr_in_r[9] = np.mean(self.ankle_vel_cache_long, axis=0)[1]      # TODO
+                        energy_rate = neural_net_regress_elu(cr_in_r, self.EWmats, self.EBmats, input_mult=self.input_mult,
+                                                             output_mult=self.output_mult_E)
+                        # print(cr_in_r)
+                        # print(energy_rate[0])
+                        # if energy_rate[0] > 10000:
+                        #     input("press enter to continue...")
+
+                        self.meta_cost += np.maximum(energy_rate[0] - self.ignore_energy, 0.0)
+                        # print("E:")
+                        # print(x)
+                        # print(energy_rate[0])
+                        # x = x * self.input_mult
+                        # print(self.modelE.predict(x[np.newaxis, :], batch_size=1))
+                tau_revised[6:11] -= residue_l
+                tau_revised[12:17] -= residue_r
+
+                # self.residues.append(np.linalg.norm(residue_r* (np.abs(residue_r) > 10.0)))
+                # print("RR:")
+                # print(cr_in_r)
+                # print(residue_r)
+                # cr_in_r = cr_in_r * self.input_mult
+                # print(self.modelR.predict(cr_in_r[np.newaxis, :], batch_size=1))
+
+            self.robot_skeleton.set_forces(tau_revised)
+
+            # self.ankle_taus.append(tau_revised[10])
+            # self.ankle_dq.append(self.robot_skeleton.dq[10])
+            # self.ankle_q.append(self.robot_skeleton.q[10])
+            # self.dy.append(self.robot_skeleton.dq[1])
+
             self.dart_world.step()
             s = self.state_vector()
             if not (np.isfinite(s).all() and (np.abs(s[2:]) < 100).all()):
                 break
-        #print(self.total_act_force, self.total_ass_force)
+
+        self.total_residue = self.total_residue / 3 / 160.0 * self.residue_pen
+        # print(self.total_residue)
+        self.meta_cost = self.meta_cost / 6 * 10 / self.up_energy
 
     def advance(self, clamped_control):
         tau = np.zeros(self.robot_skeleton.ndofs)
         tau[6:] = clamped_control * self.action_scale
 
-        if self.enforce_target_vel:
-            if self.hard_enforce and self.treadmill:
-                current_dq_tread = self.dart_world.skeletons[0].dq
-                current_dq_tread[0] = self.treadmill_vel  # * np.min([self.t/4.0, 1.0])
-                self.dart_world.skeletons[0].dq = current_dq_tread
-            elif self.hard_enforce:
-                current_dq = self.robot_skeleton.dq
-                current_dq[0] = self.target_vel
-                self.robot_skeleton.dq = current_dq
         self.do_simulation(tau, self.frame_skip)
 
     def clamp_act(self, a):
@@ -250,20 +344,12 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
         return clamped_control
 
     def _step(self, a):
-        if self.use_ref_policy:
-            current_obs = self._get_obs()
-
         # smoothly increase the target velocity
-        if self.smooth_tv_change:
-            self.target_vel = (np.min([self.t, self.tv_endtime]) / self.tv_endtime) * (
-                    self.final_tv - self.init_tv) + self.init_tv
-            self.treadmill_vel = (np.min([self.t, self.treadmill_tv_endtime]) / self.treadmill_tv_endtime) * (
-                    self.treadmill_final_tv - self.treadmill_init_tv) + self.treadmill_init_tv
+        self.target_vel = (np.min([self.t, self.tv_endtime]) / self.tv_endtime) * (
+                self.final_tv - self.init_tv) + self.init_tv
 
-        self.current_pd = self.init_balance_pd
-        self.vel_enforce_kp = self.init_vel_pd
-
-        if len(self.assist_schedule) > 0:
+        if self.t < self.assist_timeout:
+            assert len(self.assist_schedule) > 0
             for sch in self.assist_schedule:
                 if self.t > sch[0]:
                     self.current_pd = sch[1][0]
@@ -277,7 +363,8 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
 
         posafter = self.robot_skeleton.bodynode(self.push_target).com()[0]
         height = self.robot_skeleton.bodynode('head').com()[1]
-        side_deviation = self.robot_skeleton.bodynode('head').com()[2]
+        # side_deviation = self.robot_skeleton.bodynode('head').com()[2]
+        side_deviation = self.robot_skeleton.com()[2]
         angle = self.robot_skeleton.q[3]
 
         upward = np.array([0, 1, 0])
@@ -304,148 +391,74 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
         contacts = self.dart_world.collision_result.contacts
         total_force_mag = 0
         self.contact_info = np.array([0, 0])
-        stride_reward = 0.0
         l_foot_force = np.array([0.0, 0, 0])
         r_foot_force = np.array([0.0, 0, 0])
-        in_contact = False
         for contact in contacts:
-            if contact.skel_id1 == contact.skel_id2:
-                self_colliding = True
             if contact.skel_id1 + contact.skel_id2 == 1:
-                if contact.bodynode1 == self.robot_skeleton.bodynode(
-                        'l-foot') or contact.bodynode2 == self.robot_skeleton.bodynode('l-foot'):
+                # not self-colliding
+                if contact.bodynode1 == self.robot_skeleton.bodynode('l-foot') or \
+                        contact.bodynode2 == self.robot_skeleton.bodynode('l-foot'):
                     self.contact_info[0] = 1
                     total_force_mag += np.linalg.norm(contact.force)
                     l_foot_force += contact.force
-                    in_contact = True
-                    if self.t > self.tv_endtime:
-                        if len(self.contact_locations[0]) > 0 and np.linalg.norm(self.contact_locations[0][-1] - self.robot_skeleton.bodynode('l-foot').C) > 0.2:
-                            self.contact_locations[0].append(self.robot_skeleton.bodynode('l-foot').C)
-                            stride_reward = self.stride_weight*(- np.abs(
-                                np.linalg.norm(self.contact_locations[0][-1] - self.contact_locations[0][-2]) - 1.2))
-                        if len(self.contact_locations[0]) == 0:
-                            self.contact_locations[0].append(self.robot_skeleton.bodynode('l-foot').C)
-                if contact.bodynode1 == self.robot_skeleton.bodynode(
-                        'r-foot') or contact.bodynode2 == self.robot_skeleton.bodynode('r-foot'):
+                if contact.bodynode1 == self.robot_skeleton.bodynode('r-foot') or \
+                        contact.bodynode2 == self.robot_skeleton.bodynode('r-foot'):
                     self.contact_info[1] = 1
                     total_force_mag += np.linalg.norm(contact.force)
                     r_foot_force += contact.force
-                    in_contact = True
-                    if self.t > self.tv_endtime:
-                        if len(self.contact_locations[1]) > 0 and np.linalg.norm(self.contact_locations[1][-1] - self.robot_skeleton.bodynode('r-foot').C) > 0.2:
-                            self.contact_locations[1].append(self.robot_skeleton.bodynode('r-foot').C)
-                            stride_reward = self.stride_weight * (- np.abs(
-                                np.linalg.norm(self.contact_locations[1][-1] - self.contact_locations[1][-2]) - 1.2))
-
-                        if len(self.contact_locations[1]) == 0:
-                            self.contact_locations[1].append(self.robot_skeleton.bodynode('r-foot').C)
-        if in_contact:
-            self.enforce_target_vel = True
-        else:
-            self.enforce_target_vel = True
-
-        alive_bonus = self.alive_bonus_rew#np.max([1.5 + self.final_tv * 0.5 * self.vel_reward_weight, 4.0])
 
         vel = (posafter - posbefore) / self.dt
-        vel_rew = 0.0
-        if self.pos_spd:
-            self.vel_cache.append(posafter) # actually position cache
-        else:
-            self.vel_cache.append(vel)
-            self.target_vel_cache.append(self.target_vel)
-        if self.running_average_velocity or self.running_avg_rew_only:
-            if self.t < self.tv_endtime:
-                self.avg_rew_weighting.append(1.0)
-            else:
-                self.avg_rew_weighting.append(1)
 
-        vel_rew_scale = 1.0
-        if len(self.vel_cache) > int(2.0/self.dt) and (self.running_average_velocity or self.running_avg_rew_only):
+        self.vel_cache.append(vel)
+        self.target_vel_cache.append(self.target_vel)
+
+        if len(self.vel_cache) > int(2.0 / self.dt):
             self.vel_cache.pop(0)
-            self.avg_rew_weighting.pop(0)
             self.target_vel_cache.pop(0)
-        else:
-            vel_rew_scale = 1.0#np.min([len(self.vel_cache) * self.dt, 1.0])
 
-        if not self.treadmill:
-            if self.reference_trajectory is not None:
-                vel_rew = - np.exp(3.0*(np.abs(self.reference_trajectory[self.cur_step][0] - self.robot_skeleton.com()[0]**2)))
-            elif self.running_average_velocity or self.running_avg_rew_only:
-                vel_rew = -self.vel_reward_weight * np.abs(np.mean(self.target_vel_cache) - np.mean(self.vel_cache))
-            else:
-                vel_diff = np.abs(self.target_vel - vel)
-                vel_rew = -3.0 * vel_diff
-        else:
-            if self.running_average_velocity or self.running_avg_rew_only:
-                append_vel = np.ones(int(1.0/self.dt) - len(self.vel_cache)) * (self.target_vel + self.treadmill_vel)
-                vel_rew = -3.0 *vel_rew_scale* (np.abs(self.target_vel + self.treadmill_vel - np.mean(np.append(self.vel_cache, append_vel))))
-            else:
-                vel_rew = -3.0 * (np.abs(self.target_vel + self.treadmill_vel - vel))
+        vel_rew = -self.vel_reward_weight * np.abs(np.mean(self.target_vel_cache) - np.mean(self.vel_cache))
         if self.t < self.tv_endtime:
             vel_rew *= 0.5
-        # vel_rew *= 0
-        # action_pen = 5e-1 * (np.square(a)* actuator_pen_multiplier).sum()
-        action_pen = self.energy_weight * np.abs(a * self.action_penalty_weight).sum()# * (1.5/np.max([2.0,self.target_vel]))
-        # action_pen += 0.02 * np.sum(np.abs(a* self.robot_skeleton.dq[6:]))
-        deviation_pen = 3 * abs(side_deviation)
+        # TODO: does this make sense at all?
+        if self.cur_step >= 300:
+            vel_rew = vel_rew * (1.0 + (self.cur_step - 150) / 150.0 / self.final_tv)
 
-        contact_pen = 0.5 * np.square(np.clip(l_foot_force, -2000, 2000)/ 1000.0).sum()+np.square(np.clip(r_foot_force, -2000, 2000)/ 1000.0).sum()
+        alive_bonus = self.alive_bonus_rew  # np.max([1.5 + self.final_tv * 0.5 * self.vel_reward_weight, 4.0])
 
-        rot_pen = 0.3 * (abs(ang_cos_uwd)) + 0.3 * (abs(ang_cos_fwd)) + 1.5 * (abs(ang_cos_ltl))
-        # penalize bending of spine
-        spine_pen = 1.0 * np.sum(np.abs(self.robot_skeleton.q[[18, 19]])) + 1.5 * np.abs(self.robot_skeleton.q[20]) + 0.8 * np.abs(self.robot_skeleton.q[19] + self.robot_skeleton.q[3])
+        a_non_leg = np.copy(a[12:])
+        a_leg = np.copy(a[:12])
+        action_pen = 0.0
+        if self.muscle_add_tor_limit and self.muscle_add_energy_cost:
+            a_leg[0:5] = 0.0
+            a_leg[6:11] = 0.0
+            action_pen += self.energy_weight * self.meta_cost
+        action_pen += self.energy_weight * np.abs(a_leg).sum()
+        action_pen += 0.35 * np.abs(a_non_leg).sum()       # TODO: fix energy pen for non-legs
 
-        #spine_pen += 0.05 * np.sum(np.abs(self.robot_skeleton.q[[8, 14]]))
+        deviation_pen = self.side_devia_weight * abs(side_deviation)
 
-        dq_pen = 0.0 * np.sum(np.square(self.robot_skeleton.dq[6:]))
+        # contact_pen = 0.5 * np.square(np.clip(l_foot_force, -2000, 2000) / 1000.0).sum() + np.square(np.clip(
+        #     r_foot_force, -2000, 2000) / 1000.0).sum()
 
+        rot_pen = self.rot_pen_weight * (0.3 * (abs(ang_cos_uwd)) + 0.3 * (abs(ang_cos_fwd)) + 1.5 * (abs(ang_cos_ltl)))
 
-        #torso_vel_pen = 0.15*np.abs(self.robot_skeleton.bodynode('thorax').com_spatial_velocity()[0:3]).sum()
-        reward = vel_rew + alive_bonus - action_pen - deviation_pen - rot_pen*0 - spine_pen - dq_pen# - contact_pen #+ stride_reward # - torso_vel_pen
-        pos_rew = vel_rew + alive_bonus - deviation_pen - rot_pen - spine_pen
-        neg_pen = - action_pen
+        spine_pen = self.abd_pen_weight * np.sum(np.abs(self.robot_skeleton.q[[18, 19]])) + self.spl_pen_weight * np.abs(
+            self.robot_skeleton.q[20]) + self.angle_pen_weight * np.abs(self.robot_skeleton.q[3])
 
-        ref_reward = 0
-        ref_feat_rew = 0
+        # spine_pen += 0.05 * np.sum(np.abs(self.robot_skeleton.q[[8, 14]]))
+
+        # dq_pen = 0.0 * np.sum(np.square(self.robot_skeleton.dq[6:]))
+
+        # torso_vel_pen = 0.15*np.abs(self.robot_skeleton.bodynode('thorax').com_spatial_velocity()[0:3]).sum()
+
+        # TODO: rot pen is currently not invloved
+        reward = vel_rew + alive_bonus - action_pen - deviation_pen - spine_pen - rot_pen \
+            - 0.5 * np.sum(np.abs(self.robot_skeleton.q[[11, 17]]))     # TODO   #- dq_pen # - contact_pen #+ stride_reward # - torso_vel_pen
+        if self.muscle_add_tor_limit:
+            reward -= 2 * np.sqrt(self.total_residue + 1) - 2
+
         self.t += self.dt
-
         self.cur_step += 1
-
-        s = self.state_vector()
-        if self.use_ref_policy:
-            #reward -= self.ref_strength_q * np.abs(self.robot_skeleton.q - target_q).sum()
-            #reward -= self.ref_strength_dq * np.abs(self.robot_skeleton.dq - target_dq).sum()
-            #ref_reward = self.ref_strength_q * np.abs(self.robot_skeleton.q - target_q).sum() + self.ref_strength_dq * np.abs(self.robot_skeleton.dq - target_dq).sum()
-            '''cur_poses = [self.robot_skeleton.bodynode('l-lowerarm').C,
-                            self.robot_skeleton.bodynode('r-lowerarm').C, self.robot_skeleton.bodynode('l-foot').C,
-                            self.robot_skeleton.bodynode('r-foot').C]
-            cur_dposes = [self.robot_skeleton.bodynode('l-lowerarm').dC,
-                             self.robot_skeleton.bodynode('r-lowerarm').C, self.robot_skeleton.bodynode('l-foot').dC,
-                             self.robot_skeleton.bodynode('r-foot').dC]
-            for p in range(len(cur_poses)):
-                ref_reward += self.ref_strength_q * np.abs(cur_poses[p] - target_poses[p]).sum()
-                ref_reward += self.ref_strength_dq * np.abs(cur_dposes[p] - target_dposes[p]).sum()
-            reward += - ref_reward'''
-            ref_state_vec = self.ref_trajs[self.chosen_traj[0]][self.chosen_traj[1] + self.cur_step]
-            weight = np.exp(- 0.04*(self.cur_step-1))
-            ref_reward -= self.ref_strength_q * weight * np.sum(np.abs(self.state_vector() - ref_state_vec)[0:int(len(self.robot_skeleton.q)/2)])
-            ref_reward -= self.ref_strength_dq * weight * np.sum(
-                np.abs(self.state_vector() - ref_state_vec)[int(len(self.robot_skeleton.q) / 2):])
-            for k in self.ref_features[self.chosen_traj[0]][self.chosen_traj[1] + self.cur_step].keys():
-                ref_feat_rew -= self.ref_strength_q * weight * np.sum(np.square(self.robot_skeleton.bodynode(k).C - self.ref_features[self.chosen_traj[0]][self.chosen_traj[1] + self.cur_step][k][0]))
-                ref_feat_rew -= self.ref_strength_dq * weight * np.sum(np.square(self.robot_skeleton.bodynode(k).dC - self.ref_features[self.chosen_traj[0]][self.chosen_traj[1] + self.cur_step][k][1]))
-            reward += 1.0 + ref_reward + ref_feat_rew
-
-
-        done = not (np.isfinite(s).all() and (np.abs(s[2:]) < 100).all() and
-                    (height - self.init_height > -0.35) and (height - self.init_height < 1.0) and (
-                    abs(ang_cos_uwd) < 1.2) and (abs(ang_cos_fwd) < 1.2)
-                    and np.abs(angle) < 1.2 and
-                    np.abs(self.robot_skeleton.q[5]) < 1.2 and np.abs(self.robot_skeleton.q[4]) < 1.2 and np.abs(self.robot_skeleton.q[3]) < 1.2
-                    and np.abs(side_deviation) < 0.9)
-
-        if self.use_ref_policy and self.cur_step > self.max_eps_step_ref:
-            done = True
 
         self.stepwise_rewards.append(reward)
 
@@ -453,9 +466,43 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
 
         ob = self._get_obs()
 
+        s = self.state_vector()
         broke_sim = False
         if not (np.isfinite(s).all() and (np.abs(s[2:]) < 100).all()):
             broke_sim = True
+
+        done = not (np.isfinite(s).all() and (np.abs(s[2:]) < 100).all() and
+                    (height - self.init_height > -0.35) and (height - self.init_height < 1.0) and (
+                            abs(ang_cos_uwd) < 1.2) and (abs(ang_cos_fwd) < 1.2)
+                    and np.abs(angle) < 1.2 and
+                    np.abs(self.robot_skeleton.q[5]) < 1.2 and np.abs(self.robot_skeleton.q[4]) < 1.2 and np.abs(
+                    self.robot_skeleton.q[3]) < 1.2
+                    and np.abs(side_deviation) < 0.9)
+
+        # if self.cur_step == 499:
+            # plt.figure()
+            # plt.title('residues')
+            # plt.plot(self.residues, label='residues')
+            # plt.figure()
+            # plt.title('energies')
+            # plt.plot(self.energys)
+            # plt.figure()
+            # plt.title('energies')
+            # plt.hist(self.energys)
+        #     input("press enter to continue...")
+        #     plt.figure()
+        #     plt.title('q')
+        #     plt.plot(self.ankle_q, label='q')
+        #     plt.figure()
+        #     plt.title('dq')
+        #     plt.plot(self.ankle_dq, label='dq')
+        #     plt.figure()
+        #     plt.title('tau')
+        #     plt.plot(self.ankle_taus, label='tau')
+        #     plt.figure()
+        #     plt.title('dy')
+        #     plt.plot(self.dy, label='dy')
+        #     plt.show()
 
         '''work = np.sum(np.abs(clamped_control * self.action_scale * self.robot_skeleton.dq[6:])) * self.dt
         self.total_work += work
@@ -463,13 +510,11 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
         print(cot)'''
 
         return ob, reward, done, {'broke_sim': broke_sim, 'vel_rew': vel_rew, 'action_pen': action_pen,
-                                  'deviation_pen': deviation_pen, 'curriculum_id': self.curriculum_id,
-                                  'curriculum_candidates': self.spd_kp_candidates, 'done_return': done,
+                                  'deviation_pen': deviation_pen, 'done_return': done,
                                   'dyn_model_id': 0, 'state_index': 0, 'com': self.robot_skeleton.com(),
-                                  'pos_rew': pos_rew, 'neg_pen': neg_pen, 'contact_locations':self.contact_locations,
                                   'contact_force': l_foot_force + r_foot_force,
-                                  'contact_forces':[l_foot_force,r_foot_force],
-                                  'ref_reward': ref_reward, 'ref_feat_rew':ref_feat_rew, 'avg_vel':np.mean(self.vel_cache),
+                                  'contact_forces': [l_foot_force, r_foot_force],
+                                  'avg_vel': np.mean(self.vel_cache), 'meta_cost':self.meta_cost
                                   }
 
     def _get_obs(self):
@@ -480,130 +525,56 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
 
         if self.include_additional_info:
             state = np.concatenate([state, self.contact_info])
-
-        if self.rand_target_vel or self.smooth_tv_change:
             state = np.concatenate([state, [self.target_vel]])
-
-        if self.running_average_velocity:
-            state = np.concatenate([state, [(self.robot_skeleton.q[0] - self.init_pos) / self.t]])
 
         return state
 
     def reset_model(self):
-        #print('resetttt')
+        # print('resetttt')
         self.dart_world.reset()
-        self.total_work = 0
 
-        init_q = self.robot_skeleton.q
-        init_dq = self.robot_skeleton.dq
-        if len(self.init_dqs) > 0:
-            init_pid = np.random.randint(len(self.init_qs))
-            init_q = self.init_qs[init_pid]
-            init_dq = self.init_dqs[init_pid]
+        qpos = self.robot_skeleton.q + self.np_random.uniform(low=-.005, high=.005, size=self.robot_skeleton.ndofs)
+        qvel = self.robot_skeleton.dq + self.np_random.uniform(low=-.05, high=.05, size=self.robot_skeleton.ndofs)
 
-        qpos = init_q + self.np_random.uniform(low=-.005, high=.005, size=self.robot_skeleton.ndofs)
-        qvel = init_dq + self.np_random.uniform(low=-.05, high=.05, size=self.robot_skeleton.ndofs)
-        s = np.sign(np.random.random()-0.5) * self.np_random.uniform(low=.005, high=.05)
-        #qpos[1] += s
-        #qpos[7] -= s
+        if self.final_tv > 3.0:     # running
+            qpos[6] += self.np_random.uniform(low=-0.2, high=0.2)
+        else:
+            qpos[6] += self.np_random.uniform(low=-0.1, high=0.1)
 
-        if self.rand_target_vel:
-            self.target_vel = np.random.uniform(0.8, 2.5)
+        if self.add_flex_noise_q:
+            qpos[19] += self.np_random.uniform(low=-0.2, high=0.0)
+            if qpos[6] < 0:
+                qpos[6] -= 0.1
+            else:
+                qpos[6] += 0.1
 
-        if self.local_spd_curriculum:
-            self.spd_kp_candidates = [self.anchor_kp]
-            self.curriculum_id = np.random.randint(len(self.spd_kp_candidates))
-            chosen_curriculum = self.spd_kp_candidates[self.curriculum_id]
-            self.init_balance_pd = chosen_curriculum[0]
-            self.end_balance_pd = chosen_curriculum[0]
-            self.init_vel_pd = chosen_curriculum[1]
-            self.end_vel_pd = chosen_curriculum[1]
+        qpos[10] = -qpos[6]
+        qpos[12] = -qpos[6]
+        qpos[16] = qpos[6]
 
-        if self.init_push:
-            qvel[0] = self.target_vel
         self.set_state(qpos, qvel)
+
         self.t = self.dt
         self.cur_step = 0
         self.stepwise_rewards = []
 
-        self.init_pos = self.robot_skeleton.q[0]
-
-        self.conseq_limit_pen = 0
-        self.current_pd = self.init_balance_pd
-        self.vel_enforce_kp = self.init_vel_pd
-        if self.const_force is not None:
-            self.const_force = self.init_vel_pd
-
         self.contact_info = np.array([0, 0])
-        self.contact_locations = [[], []]
-
-        self.push_forces = []
 
         self.previous_control = None
-
-        self.init_height = self.robot_skeleton.bodynode('head').C[1]
-        self.moving_bin = None
 
         self.vel_cache = []
         self.target_vel_cache = []
 
-        self.avg_rew_weighting = []
+        self.dq_cache_l = []
+        self.dq_cache_r = []
+        self.ankle_vel_cache_long = []
 
-        self.reference_trajectory = None
-
-        if np.random.randint(2) == 0:
-            self.push_target = 'pelvis'
-        #else:
-        #    self.push_target = 'thorax'
-
-        if self.use_ref_policy:
-            if len(self.ref_trajs) == 0:
-                self.use_ref_policy = False
-                current_pd = self.current_pd
-                vel_enforce_kp = self.vel_enforce_kp
-
-                for i in range(50):
-                    one_traj = []
-                    one_traj_feature = []
-                    o = self.reset()
-                    self.init_balance_pd = self.ref_policy_curriculum[0]
-                    self.init_vel_pd = self.ref_policy_curriculum[1]
-                    one_traj.append(self.state_vector())
-                    one_traj_feature.append({'l-foot': [self.robot_skeleton.bodynode('l-foot').C,
-                                                        self.robot_skeleton.bodynode('l-foot').dC],
-                                             'r-foot': [self.robot_skeleton.bodynode('r-foot').C,
-                                                        self.robot_skeleton.bodynode('r-foot').dC],
-                                             'l-lowerarm': [self.robot_skeleton.bodynode('l-lowerarm').C,
-                                                            self.robot_skeleton.bodynode('l-lowerarm').dC],
-                                             'r-lowerarm': [self.robot_skeleton.bodynode('r-lowerarm').C,
-                                                            self.robot_skeleton.bodynode('r-lowerarm').dC]})
-                    for j in range(400):
-                        a, v = self.ref_policy.act(False, o)
-                        o, r, d, _ = self._step(a)
-                        one_traj.append(self.state_vector())
-                        one_traj_feature.append({'l-foot':[self.robot_skeleton.bodynode('l-foot').C,self.robot_skeleton.bodynode('l-foot').dC],
-                                                 'r-foot':[self.robot_skeleton.bodynode('r-foot').C,self.robot_skeleton.bodynode('r-foot').dC],
-                                                 'l-lowerarm':[self.robot_skeleton.bodynode('l-lowerarm').C, self.robot_skeleton.bodynode('l-lowerarm').dC],
-                                                 'r-lowerarm':[self.robot_skeleton.bodynode('r-lowerarm').C, self.robot_skeleton.bodynode('r-lowerarm').dC]})
-                        if d:
-                            break
-                    if len(one_traj) > 300:
-                        self.ref_trajs.append(one_traj)
-                        self.ref_features.append(one_traj_feature)
-                    if len(self.ref_trajs) > self.ref_traj_num:
-                        break
-                self.current_pd = current_pd
-                self.vel_enforce_kp = vel_enforce_kp
-                self.use_ref_policy = True
-                self.reset()
-            self.chosen_traj[0] = np.random.randint(len(self.ref_trajs))
-            select_from_transit = np.random.randint(2) == 0
-            if select_from_transit:
-                self.chosen_traj[1] = np.random.randint(int(self.tv_endtime / self.dt))
-            else:
-                self.chosen_traj[1] = np.random.randint(int(self.tv_endtime / self.dt), len(self.ref_trajs[self.chosen_traj[0]]) - self.max_eps_step_ref-1)
-            self.set_state_vector(self.ref_trajs[self.chosen_traj[0]][self.chosen_traj[1]])
-            self.t = self.chosen_traj[1] * self.dt
+        self.total_residue = 0
+        assert len(self.assist_schedule) > 0
+        self.current_pd = self.assist_schedule[0][1][0]
+        self.vel_enforce_kp = self.assist_schedule[0][1][1]
+        self.target_vel = 0.0
+        self.meta_cost = 0.0
 
         return self._get_obs()
 
@@ -611,4 +582,3 @@ class DartHumanWalkerEnv(dart_env.DartEnv, utils.EzPickle):
         if not self.disableViewer:
             # self.track_skeleton_id = 0
             self._get_viewer().scene.tb.trans[2] = -5.5
-

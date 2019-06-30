@@ -1,0 +1,803 @@
+<?xml version="1.0" ?>
+<skel version="1.0">
+    <world name="world 1">
+        <physics>
+            <!-- YF: changed to 0.002 -->
+            <time_step>0.002</time_step>
+            <gravity>0 -9.8 0</gravity>
+            <collision_detector>bullet</collision_detector>
+        </physics>
+
+        <skeleton name="ground skeleton">
+            <mobile>false</mobile>
+            <body name="ground">
+                <!-- <transformation>0 -1.1825 0 0 0 0</transformation> -->
+                <transformation>0 -0.9745 0 0 0 0</transformation>
+                <visualization_shape>
+                    <transformation>0 0 0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>500.0 0.04 2.0</size>
+                        </box>
+                    </geometry>
+                    <color>0.4 0.4 0.4</color>
+                </visualization_shape>
+                <collision_shape>
+                    <transformation>0 0 0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>500.0 0.04 10.0</size>
+                        </box>
+                    </geometry>
+                </collision_shape>
+            </body>
+            <joint name="joint 1" type="free">
+                <parent>world</parent>
+                <child>ground</child>
+            </joint>
+        </skeleton>
+
+        <skeleton name="human">
+            <transformation>0 0 0 0 0 0</transformation>
+
+            <!-- YF: add pelvis_aux to match wenhao -->
+            <body name="pelvis_aux">
+                <transformation>0.0 0.0 0.0 0 0.0 0</transformation>
+                <inertia>
+                    <mass>0.0</mass>
+                    <offset>0.0 0 0.0</offset>
+                </inertia>
+            </body>
+
+            <body name="pelvis">
+                <transformation>0.0 0.0 0.0 0 0 0</transformation>
+                <inertia>
+                    <mass>11.3316</mass>
+                    <offset>0 0 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 0.0 0.0 0 0 0</transformation>
+                    <geometry>
+                        <mesh>
+                            <file_name>pelvis.dae</file_name>
+                            <scale>1.4 1.4 1.4</scale>
+                        </mesh>
+                    </geometry>
+                </visualization_shape>
+                <collision_shape>
+                    <transformation>0.0 0.0 0.0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>0.175 0.1855 0.35</size>
+                        </box>
+                    </geometry>
+                </collision_shape>
+            </body>
+            <body name="l-upperleg">
+                <transformation>0.0 -0.035 -0.1225 0 0 0</transformation>
+                <inertia>
+                    <mass>7.6</mass>
+                    <!-- YF: match mass offset with wenhao, 2cm seems wrong -->
+                    <offset>0 -0.24310125 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 -0.214375 0.0 0 0 0</transformation>
+                    <geometry>
+                        <multi_sphere>
+                            <sphere>
+                                <radius>0.077</radius>
+                                <position>0 0.214375 0</position>
+                            </sphere>
+                            <sphere>
+                                <radius>0.07</radius>
+                                <position>0 -0.214375 0</position>
+                            </sphere>
+                        </multi_sphere>
+                    </geometry>
+                </visualization_shape>
+            </body>
+            <body name="l-lowerleg">
+                <transformation>0.0 -0.46375 -0.1225 0 0 0</transformation>
+                <inertia>
+                    <mass>3.534</mass>
+                    <!-- YF: match mass offset with wenhao, 2cm seems wrong -->
+                    <offset>0 -0.22722525 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 -0.200375 0.0 0 0 0</transformation>
+                    <geometry>
+                        <multi_sphere>
+                            <sphere>
+                                <radius>0.05775</radius>
+                                <position>0 0.200375 0</position>
+                            </sphere>
+                            <sphere>
+                                <radius>0.0525</radius>
+                                <position>0 -0.200375 0</position>
+                            </sphere>
+                        </multi_sphere>
+                    </geometry>
+                </visualization_shape>
+                <collision_shape>
+                    <transformation>0.0 -0.200375 0.0 0 0 0</transformation>
+                    <!-- YF: change to box collision for dart -->
+                    <geometry>
+                        <box>
+                            <size>0.105 0.400875 0.105</size>
+                        </box>
+                    </geometry>
+                </collision_shape>
+            </body>
+            <body name="l-foot">
+                <transformation>0.0 -0.8645 -0.1225 0 0 0</transformation>
+                <inertia>
+                    <!-- changed to 1.2 to absorb toe -->
+                    <mass>1.2</mass>
+                    <!-- changed to 0.0525 to match below -->
+                    <offset>0.065 -0.04 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <!-- YF: change ytrans to 0.0 to match ICRA. otherwise foot will rotate out ankle -->
+                    <transformation>0.065 -0.04 0.0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>0.245 0.08 0.085</size>
+                        </box>
+                    </geometry>
+                </visualization_shape>
+                <collision_shape>
+                    <transformation>0.065 -0.04 0.0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>0.245 0.08 0.085</size>
+                        </box>
+                    </geometry>
+                </collision_shape>
+            </body>
+
+            <body name="r-upperleg">
+                <transformation>0.0 -0.035 0.1225 0 0 0</transformation>
+                <inertia>
+                    <mass>7.6</mass>
+                    <offset>0 -0.24310125 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 -0.214375 0.0 0 0 0</transformation>
+                    <geometry>
+                        <multi_sphere>
+                            <sphere>
+                                <radius>0.077</radius>
+                                <position>0 0.214375 0</position>
+                            </sphere>
+                            <sphere>
+                                <radius>0.07</radius>
+                                <position>0 -0.214375 0</position>
+                            </sphere>
+                        </multi_sphere>
+                    </geometry>
+                </visualization_shape>
+            </body>
+            <body name="r-lowerleg">
+                <transformation>0.0 -0.46375 0.1225 0 0 0</transformation>
+                <inertia>
+                    <mass>3.534</mass>
+                    <offset>0 -0.22722525 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 -0.200375 0.0 0 0 0</transformation>
+                    <geometry>
+                        <multi_sphere>
+                            <sphere>
+                                <radius>0.05775</radius>
+                                <position>0 0.200375 0</position>
+                            </sphere>
+                            <sphere>
+                                <radius>0.0525</radius>
+                                <position>0 -0.200375 0</position>
+                            </sphere>
+                        </multi_sphere>
+                    </geometry>
+                </visualization_shape>
+                <collision_shape>
+                    <transformation>0.0 -0.200375 0.0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>0.105 0.400875 0.105</size>
+                        </box>
+                    </geometry>
+                </collision_shape>
+            </body>
+            <body name="r-foot">
+                <transformation>0.0 -0.8645 0.1225 0 0 0</transformation>
+                <inertia>
+                    <mass>1.2</mass>
+                    <offset>0.065 -0.04 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.065 -0.04 0.0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>0.245 0.08 0.085</size>
+                        </box>
+                    </geometry>
+                </visualization_shape>
+                <collision_shape>
+                    <transformation>0.065 -0.04 0.0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>0.245 0.08 0.085</size>
+                        </box>
+                    </geometry>
+                </collision_shape>
+            </body>
+
+            <body name="abdomen">
+                <transformation>0.0 0.09275 0.0 0 0 0</transformation>
+                <inertia>
+                    <mass>11.3316</mass>
+                    <!-- YF: added offset to match below -->
+                    <offset>0 0.0735 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 0.0735 0.0 0 0 0</transformation>
+                    <geometry>
+                        <mesh>
+                            <file_name>abdomen.dae</file_name>
+                            <scale>1.4 1.4 1.4</scale>
+                        </mesh>
+                    </geometry>
+                </visualization_shape>
+                <collision_shape>
+                    <transformation>0.0 0.0735 0.0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>0.175 0.1855 0.315</size>
+                        </box>
+                    </geometry>
+                </collision_shape>
+            </body>
+            <body name="thorax">
+                <transformation>0.0 0.27825 0.0 0 0 0</transformation>
+                <inertia>
+                    <mass>13.5888</mass>
+                    <!-- YF: added offset to match below -->
+                    <offset>0 0.097125 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 0.097125 0.0 0 0 0</transformation>
+                    <geometry>
+                        <mesh>
+                            <file_name>thorax.dae</file_name>
+                            <scale>1.4 1.4 1.4</scale>
+                        </mesh>
+                    </geometry>
+                </visualization_shape>
+                <collision_shape>
+                    <transformation>0.0 0.097125 0.0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>0.175 0.238 0.28</size>
+                        </box>
+                    </geometry>
+                </collision_shape>
+            </body>
+            <body name="head">
+                <transformation>0.0 0.58975 0.0 0 0 0</transformation>
+                <inertia>
+                    <mass>6.156</mass>
+                    <!-- YF: added offset to match below -->
+                    <offset>0 0.098875 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 0.098875 0.0 0 0 0</transformation>
+                    <geometry>
+                        <mesh>
+                            <file_name>head.dae</file_name>
+                            <scale>1.3 1.3 1.3</scale>
+                        </mesh>
+                    </geometry>
+                </visualization_shape>
+                <collision_shape>
+                    <transformation>0.0 0.098875 0.0 0 0 0</transformation>
+                    <geometry>
+                        <box>
+                            <size>0.175 0.19775 0.175</size>
+                        </box>
+                    </geometry>
+                </collision_shape>
+            </body>
+
+            <body name="l-clavicle">
+                <!-- YF: change to -0.03 to match ICRA, we dont have clavicle joint but only shld -->
+                <transformation>0.0 0.47075 -0.03 0 0 0</transformation>
+                <inertia>
+                    <mass>0.76</mass>
+                    <!-- YF: added offset to match below -->
+                    <offset>0 0.0 -0.07</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 0.0 -0.07 0 0 0</transformation>
+                    <geometry>
+                        <mesh>
+                            <file_name>l-clavicle.dae</file_name>
+                            <scale>1.5 1.5 1.5</scale>
+                        </mesh>
+                    </geometry>
+                </visualization_shape>
+                <!-- YF: delete collsion to match Wenhao -->
+            </body>
+            <body name="l-upperarm">
+                 <!-- YF: chane by -0.03 to match ICRA, we dont have clavicle joint but only shld -->
+                <transformation>0.0 0.455 -0.205 0 0 0</transformation>
+                <inertia>
+                    <mass>2.128</mass>
+                    <!-- YF: added offset to match below -->
+                    <offset>0 -0.17766 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 -0.1575 0.0 0 0 0</transformation>
+                    <geometry>
+                        <multi_sphere>
+                            <sphere>
+                                <radius>0.05775</radius>
+                                <position>0 0.1575 0</position>
+                            </sphere>
+                            <sphere>
+                                <radius>0.0525</radius>
+                                <position>0 -0.1575 0</position>
+                            </sphere>
+                        </multi_sphere>
+                    </geometry>
+                </visualization_shape>
+                <!-- YF: delete collsion to match Wenhao -->
+            </body>
+            <body name="l-lowerarm">
+                <transformation>0.0 0.14 -0.205 0 0 0</transformation>
+                <inertia>
+                    <!-- YF: added mass to absorb hand -->
+                    <mass>1.656</mass>
+                    <!-- YF: added offset to match below, absorb hand -->
+                    <offset>0 -0.1646375 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 -0.1446375 0.0 0 0 0</transformation>
+                    <geometry>
+                        <multi_sphere>
+                            <sphere>
+                                <radius>0.048125</radius>
+                                <position>0 0.1446375 0</position>
+                            </sphere>
+                            <sphere>
+                                <radius>0.04375</radius>
+                                <position>0 -0.1446375 0</position>
+                            </sphere>
+                        </multi_sphere>
+                    </geometry>
+                </visualization_shape>
+                <!-- YF: delete collsion to match Wenhao -->
+            </body>
+
+            <body name="r-clavicle">
+                <transformation>0.0 0.47075 0.03 0 0 0</transformation>
+                <inertia>
+                    <mass>0.76</mass>
+                    <offset>0 0.0 0.07</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 0.0 0.07 0 0 0</transformation>
+                    <geometry>
+                        <mesh>
+                            <file_name>r-clavicle.dae</file_name>
+                            <scale>1.5 1.5 1.5</scale>
+                        </mesh>
+                    </geometry>
+                </visualization_shape>
+            </body>
+            <body name="r-upperarm">
+                <transformation>0.0 0.455 0.205 0 0 0</transformation>
+                <inertia>
+                    <mass>2.128</mass>
+                    <offset>0 -0.17766 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 -0.1575 0.0 0 0 0</transformation>
+                    <geometry>
+                        <multi_sphere>
+                            <sphere>
+                                <radius>0.05775</radius>
+                                <position>0 0.1575 0</position>
+                            </sphere>
+                            <sphere>
+                                <radius>0.0525</radius>
+                                <position>0 -0.1575 0</position>
+                            </sphere>
+                        </multi_sphere>
+                    </geometry>
+                </visualization_shape>
+            </body>
+            <body name="r-lowerarm">
+                <transformation>0.0 0.14 0.205 0 0 0</transformation>
+                <inertia>
+                    <mass>1.656</mass>
+                    <offset>0 -0.1646375 0</offset>
+                </inertia>
+                <visualization_shape>
+                    <transformation>0.0 -0.1446375 0.0 0 0 0</transformation>
+                    <geometry>
+                        <multi_sphere>
+                            <sphere>
+                                <radius>0.048125</radius>
+                                <position>0 0.1446375 0</position>
+                            </sphere>
+                            <sphere>
+                                <radius>0.04375</radius>
+                                <position>0 -0.1446375 0</position>
+                            </sphere>
+                        </multi_sphere>
+                    </geometry>
+                </visualization_shape>
+            </body>
+
+            <!-- JOINT: Pelvis -->
+            <!-- YF: add pelvis_aux to match wenhao -->
+            <joint type="translational" name="j_pelvis">
+                <parent>world</parent>
+                <child>pelvis_aux</child>
+            </joint>
+
+            <joint type="euler" name="j_pelvis2">
+                <parent>pelvis_aux</parent>
+                <child>pelvis</child>
+                <axis_order>zyx</axis_order>
+                <init_pos>0 0 0</init_pos>
+            </joint>
+
+            <!-- JOINT: Left Leg -->
+            <joint name="j_thigh_left" type="euler">
+                <!-- YF: match with opensim z(-x)(-y) axis order -->
+                <transformation>0.0 0.0 0.0 1.570796 0.0 1.570796</transformation>
+                <parent>pelvis</parent>
+                <child>l-upperleg</child>
+                <axis_order>xyz</axis_order>
+                <!-- YF: Wenhao disabled internal rotation and adduction; for now I will not do that -->
+                <!-- I will not add too much damping as well. Leave it to the model itself for now. -->
+                <axis>
+                    <limit>
+                        <lower>-0.9</lower>
+                        <upper>1.5</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis>
+                <axis2>
+                    <limit>
+                        <lower>-0.6</lower>
+                        <upper>0.6</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis2>
+                <axis3>
+                    <limit>
+                        <lower>-0.3</lower>
+                        <upper>0.2</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis3>
+            </joint>
+            <joint name="j_shin_left" type="revolute">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>l-upperleg</parent>
+                <child>l-lowerleg</child>
+                <axis>
+                    <xyz>0.0 0.0 1.0</xyz>
+                    <!-- changed to Opensim limits -->
+                    <limit>
+                        <lower>-2.0943951</lower>
+                        <upper>0.0</upper>
+                    </limit>
+                    <!-- YF: added damping -->
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis>
+            </joint>
+            <joint name="j_heel_left" type="universal">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>l-lowerleg</parent>
+                <child>l-foot</child>
+                <axis>
+                    <xyz>0.0 0.0 1.0</xyz>
+                    <!-- modified limit and added spring to match Wenhao -->
+                    <limit>
+                        <lower>-0.9</lower>
+                        <upper>0.785</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis>
+                <axis2>
+                    <!-- modified eversion/inversion axis to match opensim -->
+                    <!-- <xyz>-0.78717961 -0.60474746 -0.12094949</xyz> -->
+                    <xyz>-0.78717961 -0.60474746 -0.12094949</xyz>
+                    <limit>
+                        <lower>-0.785</lower>
+                        <upper>0.785</upper>
+                    </limit>
+                    <!-- added damping to match Wenhao -->
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis2>
+            </joint>
+
+            <!-- JOINT: Right Leg -->
+            <joint name="j_thigh_right" type="euler">
+                <transformation>0.0 0.0 0.0 -1.570796 0.0 -1.570796</transformation>
+                <parent>pelvis</parent>
+                <child>r-upperleg</child>
+                <axis_order>xyz</axis_order>
+                <!-- YF: Wenhao disabled internal rotation and adduction; for now I will not do that -->
+                <!-- I will not add too much damping as well. Leave it to the model itself for now. -->
+                <axis>
+                    <limit>
+                        <lower>-0.9</lower>
+                        <upper>1.5</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis>
+                <axis2>
+                    <limit>
+                        <lower>-0.6</lower>
+                        <upper>0.6</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis2>
+                <axis3>
+                    <limit>
+                        <lower>-0.3</lower>
+                        <upper>0.2</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis3>
+            </joint>
+            <joint name="j_shin_right" type="revolute">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>r-upperleg</parent>
+                <child>r-lowerleg</child>
+                <axis>
+                    <xyz>0.0 0.0 1.0</xyz>
+                    <!-- changed to Opensim limits -->
+                    <limit>
+                        <lower>-2.0943951</lower>
+                        <upper>0.0</upper>
+                    </limit>
+                    <!-- YF: added damping -->
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis>
+            </joint>
+            <joint name="j_heel_right" type="universal">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>r-lowerleg</parent>
+                <child>r-foot</child>
+                <axis>
+                    <xyz>0.0 0.0 1.0</xyz>
+                    <!-- modified limit and added spring to match Wenhao -->
+                    <limit>
+                        <lower>-0.9</lower>
+                        <upper>0.785</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>2.0</damping>
+<!--                         <spring_rest_position>0.0</spring_rest_position>
+                        <spring_stiffness>50.0</spring_stiffness>
+                        <spring_damping>2.0</spring_damping> -->
+                    </dynamics>
+                    <!-- TODO: is spring necessary?? -->
+                </axis>
+                <axis2>
+                    <!-- modified eversion/inversion axis to match opensim -->
+                    <!-- <xyz>0.78717961 0.60474746 -0.12094949</xyz> -->
+                    <xyz>0.78717961 0.60474746 -0.12094949</xyz>
+                    <limit>
+                        <lower>-0.785</lower>
+                        <upper>0.785</upper>
+                    </limit>
+                    <!-- added damping to match Wenhao -->
+                    <dynamics>
+                        <damping>2.0</damping>
+                    </dynamics>
+                </axis2>
+            </joint>
+
+            <!-- TORSO -->
+            <joint name="j_abdomen" type="universal">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>pelvis</parent>
+                <child>abdomen</child>
+                <axis>
+                    <xyz>1.0 0.0 0.0</xyz>
+                    <limit>
+                        <lower>-0.523</lower>
+                        <upper>0.523</upper>
+                    </limit>
+                    <!-- YF: added large damping to match Wenhao-->
+                    <dynamics>
+                        <damping>35.0</damping>
+                    </dynamics>
+                </axis>
+                <axis2>
+                    <xyz>0.0 0.0 1.0</xyz>
+                    <limit>
+                        <lower>-0.523</lower>
+                        <upper>0.523</upper>
+                    </limit>
+                    <!-- YF: aadded large damping to match Wenhao-->
+                    <dynamics>
+                        <damping>20.0</damping>
+                    </dynamics>
+                </axis2>
+                <init_pos>0 0</init_pos>
+                <init_vel>0 0</init_vel>
+            </joint>
+            <joint name="j_spine" type="revolute">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>abdomen</parent>
+                <child>thorax</child>
+                <axis>
+                    <xyz>0.0 1.0 0.0</xyz>
+                    <limit>
+                        <lower>-0.523</lower>
+                        <upper>0.523</upper>
+                    </limit>
+                    <!-- YF: added large damping to match Wenhao -->
+                    <dynamics>
+                        <damping>20.0</damping>
+                    </dynamics>
+                </axis>
+                <init_pos>0</init_pos>
+                <init_vel>0</init_vel>
+            </joint>
+            <!-- YF: changed to weld to match Wenhao -->
+            <joint name="j_head" type="weld">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>thorax</parent>
+                <child>head</child>
+            </joint>
+
+            <!-- JOINT: Left Arm -->
+            <!-- YF: for now just match arm with the legs. later may change them -->
+            <joint name="j_scapula_left" type="weld">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>thorax</parent>
+                <child>l-clavicle</child>
+            </joint>
+            <joint name="j_bicep_left" type="euler">
+                <transformation>0.0 0.0 0.0 1.570796 0.0 1.570796</transformation>
+                <parent>l-clavicle</parent>
+                <child>l-upperarm</child>
+                <axis_order>xyz</axis_order>
+                <!-- YF: Wenhao disabled internal rotation and adduction; for now I will not do that -->
+                <!-- I will not add too much damping as well. Leave it to the model itself for now. -->
+                <!-- YF: disabled adduction, otherwise will penetrate into body -->
+                <axis>
+                    <limit>
+                        <lower>-0.9</lower>
+                        <upper>1.5</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>3.0</damping>
+                    </dynamics>
+                </axis>
+                <axis2>
+                    <limit>
+                        <lower>-1.57</lower>
+                        <upper>0.0</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>3.0</damping>
+                    </dynamics>
+                </axis2>
+                <axis3>
+                    <limit>
+                        <lower>-0.6</lower>
+                        <upper>0.6</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>3.0</damping>
+                    </dynamics>
+                </axis3>
+            </joint>
+            <joint name="j_forearm_left" type="revolute">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>l-upperarm</parent>
+                <child>l-lowerarm</child>
+                <axis>
+                    <xyz>0.0 0.0 1.0</xyz>
+                    <limit>
+                        <lower>0.0</lower>
+                        <upper>2.9</upper>
+                    </limit>
+                    <!-- YF: added damping -->
+                    <dynamics>
+                        <damping>3.0</damping>
+                    </dynamics>
+                </axis>
+                <init_pos>0.0</init_pos>
+                <init_vel>0</init_vel>
+            </joint>
+
+            <joint name="j_scapula_right" type="weld">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>thorax</parent>
+                <child>r-clavicle</child>
+            </joint>
+            <joint name="j_bicep_right" type="euler">
+                <transformation>0.0 0.0 0.0 -1.570796 0.0 -1.570796</transformation>
+                <parent>r-clavicle</parent>
+                <child>r-upperarm</child>
+                <axis_order>xyz</axis_order>
+                <!-- YF: Wenhao disabled internal rotation and adduction; for now I will not do that -->
+                <!-- I will not add too much damping as well. Leave it to the model itself for now. -->
+                <axis>
+                    <limit>
+                        <lower>-0.9</lower>
+                        <upper>1.5</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>3.0</damping>
+                    </dynamics>
+                </axis>
+                <axis2>
+                    <limit>
+                        <lower>-1.57</lower>
+                        <upper>0.0</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>3.0</damping>
+                    </dynamics>
+                </axis2>
+                <axis3>
+                    <limit>
+                        <lower>-0.6</lower>
+                        <upper>0.6</upper>
+                    </limit>
+                    <dynamics>
+                        <damping>3.0</damping>
+                    </dynamics>
+                </axis3>
+            </joint>
+            <joint name="j_forearm_right" type="revolute">
+                <transformation>0.0 0.0 0.0 0.0 0.0 0.0</transformation>
+                <parent>r-upperarm</parent>
+                <child>r-lowerarm</child>
+                <axis>
+                    <xyz>0.0 0.0 1.0</xyz>
+                    <limit>
+                        <lower>0.0</lower>
+                        <upper>2.9</upper>
+                    </limit>
+                    <!-- YF: added damping -->
+                    <dynamics>
+                        <damping>3.0</damping>
+                    </dynamics>
+                </axis>
+                <init_pos>0.0</init_pos>
+                <init_vel>0</init_vel>
+            </joint>
+        </skeleton>
+    </world>
+</skel>
