@@ -71,6 +71,7 @@ def train_mirror(args, num_timesteps):
     # if initialize from previous runs
     #previous_params = joblib.load('')
     #env.env.env.assist_schedule = []
+    env.env.env.assist_schedule = [[0.0, [1000.0, 1000]], [3.0, [750.0, 750]], [6.0, [565.0, 565]]]
 
     joblib.dump(str(env.env.env.__dict__), logger.get_dir() + '/env_specs.pkl', compress=True)
 
@@ -138,11 +139,11 @@ def main():
     parser.add_argument('--HW_add_flex_noise_q', help='add noise to hip flex q?', type=bool, default=True)
     parser.add_argument('--HW_final_tv', help='final target velocity', type=float, default=1.5)
     parser.add_argument('--HW_tv_endtime', help='time to acc to final target velocity', type=float, default=1.2)
-    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.1)
+    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.4)
     parser.add_argument('--HW_alive_bonus_rew', help='alive bonus weight', type=float, default=9.0)
     parser.add_argument('--HW_vel_reward_weight', help='velocity pen weight', type=float, default=4.5)
     parser.add_argument('--HW_side_devia_weight', help='side deviation pen weight', type=float, default=3.0)
-    parser.add_argument('--HW_rot_pen_weight', help='rotation pen weight', type=float, default=0.0)
+    parser.add_argument('--HW_rot_pen_weight', help='rotation pen weight', type=float, default=0.3)
     parser.add_argument('--HW_abd_pen_weight', help='abdomen dof pen weight', type=float, default=1.0)
     parser.add_argument('--HW_spl_pen_weight', help='spine dof pen weight', type=float, default=0.5)
     parser.add_argument('--HW_angle_pen_weight', help='tilt angle pen weight', type=float, default=0.8)
