@@ -221,6 +221,12 @@ register(
     max_episode_steps=500,
 )
 
+register(
+    id='DartHumanWalkerMD-v2',
+    entry_point='gym.envs.dart:DartHumanWalkerMDToeEnv',
+    max_episode_steps=500,
+)
+
 # Mujoco
 # ----------------------------------------
 
