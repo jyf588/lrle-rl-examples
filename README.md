@@ -10,7 +10,7 @@ This repository contains examples applying the paper's techniques to deep RL loc
 
 ### 0. Clone this repo:
 ```bash
-    https://github.com/jyf588/lrle-rl-examples.git
+    git clone https://github.com/jyf588/lrle-rl-examples.git
     cd lrle-rl-examples
     git checkout master(or release-old, see Usage)
 ```
@@ -38,6 +38,8 @@ This repository contains examples applying the paper's techniques to deep RL loc
     sudo apt-get install libnlopt-dev
     sudo apt-get install libxi-dev libxmu-dev freeglut3-dev
     sudo apt-get install libode-dev # ignore this if it tells you ode has already been installed
+    sudo apt-get install libtinyxml2-dev
+    sudo apt-get install libblacs-mpi-dev openmpi-bin
 ```
 
 Note for Ubuntu 14.04 Trusty:
@@ -58,20 +60,19 @@ To correctly handle collision for capsule shape, ODE(Open Dynamics Engine) is re
     sudo make install
     cd ..
     cd ..
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ```
 
-### 2. Set up python environment and install Opensim
+Note: If you have Nvidia drivers installed on your computer, you might need to do something similar to this https://github.com/RobotLocomotion/drake/issues/2087 to address one error during Dart installation.
+
+### 2. Set up python environment
 
 Install Anaconda first: https://www.anaconda.com, then:
 
 ```bash
-    conda create -n lrle-rl-env -c kidzik opensim python=3.6.1
-    source activate lrle-rl-env
-    conda install matplotlib
-    conda install mpi4py
+    conda create -n lrle-rl-env python=3.6
+    conda activate lrle-rl-env
 ```
-
-Note: Opensim is used only in the AMTU baseline method in the release-old branch.
 
 Note: if you encouter permission denied errors below, try using "sudo chown" command to changed the privilege of the denied file/folder. It is in general bad practice to "sudo install/setup" something into a conda env.
 
@@ -90,13 +91,13 @@ Modify setup.py: add a space before -framework Cocoa; add add CXX_FLAGS += '-std
 If you are using Xcode 10 on MacOS X Mojave, run the following line:
 
 ```
-MACOSX_DEPLOYMENT_TARGET=10.9 python setup.py build build_ext
+    MACOSX_DEPLOYMENT_TARGET=10.9 python setup.py build build_ext
 ```
 
 otherwise:
 
 ```
-python setup.py build build_ext
+    python setup.py build build_ext
 ```
 
 And then:
@@ -131,6 +132,12 @@ Use **pip3** instead of **pip** if you plan to use python3.
     pip install keras
 ```
 Note: I would recommend install keras using pip rather than conda, since its dependency tensorflow was installed using pip as well when Baselines was installed.
+
+### 7. Install OpenSim (Used only in the AMTU baseline)
+```bash
+    conda install -c kidzik opensim 
+    conda install matplotlib
+```
 
 ## Usage: (reference: https://github.com/VincentYu68/SymmetryCurriculumLocomotion)
 
