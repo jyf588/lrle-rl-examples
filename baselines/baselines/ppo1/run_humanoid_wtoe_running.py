@@ -94,7 +94,7 @@ def train_mirror(args, num_timesteps):
     f.close()
     shutil.copyfile(env.env.env.model_file_name, logger.get_dir() + '/using_model.skel')
 
-    cur_sym_loss = 1.0
+    cur_sym_loss = 3.0
     iter_num = 0
     previous_params = None
     previous_params = joblib.load('./policy_params_190.pkl')     # warm-start for running
@@ -102,7 +102,7 @@ def train_mirror(args, num_timesteps):
     rollout_length_threshold = None
     pposgd_mirror.learn(env, policy_fn,
                         max_timesteps=num_timesteps,
-                        timesteps_per_batch=int(2000),
+                        timesteps_per_batch=int(4000),
                         clip_param=args.clip, entcoeff=0.0,
                         optim_epochs=10, optim_stepsize=2.5e-4, optim_batchsize=64,     # since warm-start, smaller init lr to decrease from
                         gamma=0.99, lam=0.95, schedule='linear',                        # decreasing lr

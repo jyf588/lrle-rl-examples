@@ -97,14 +97,15 @@ def train_mirror(args, num_timesteps):
     iter_num = 0
     previous_params = None
     # previous_params = joblib.load('')
+    previous_params = joblib.load('./policy_params_240_MD.pkl')     # warm-start for running
     reward_threshold = None
     rollout_length_threshold = None
     pposgd_mirror.learn(env, policy_fn,
                         max_timesteps=num_timesteps,
                         timesteps_per_batch=int(4000),
                         clip_param=args.clip, entcoeff=0.0,
-                        optim_epochs=10, optim_stepsize=3e-4, optim_batchsize=64,
-                        gamma=0.99, lam=0.95, schedule='linear',
+                        optim_epochs=10, optim_stepsize=2.5e-4, optim_batchsize=64,   # since warm-start, smaller init lr to decrease from
+                        gamma=0.99, lam=0.95, schedule='linear',                      # decreasing lr
                         callback=callback,
                         sym_loss_weight=cur_sym_loss,
                         init_policy_params=previous_params,
@@ -126,14 +127,14 @@ def main():
     parser.add_argument('--layers', type=int, default=2)
     parser.add_argument('--clip', type=float, default=0.2)
 
-    parser.add_argument('--HW_final_tar_v', help='final target velocity', type=float, default=1.4)
-    parser.add_argument('--HW_tar_acc_time', help='time to acc to final target velocity', type=float, default=0.9)
-    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.3)
-    parser.add_argument('--HW_alive_bonus_rew', help='alive bonus weight', type=float, default=5.0)
-    parser.add_argument('--HW_vel_reward_weight', help='velocity pen weight', type=float, default=8.0)
+    parser.add_argument('--HW_final_tar_v', help='final target velocity', type=float, default=4.0)
+    parser.add_argument('--HW_tar_acc_time', help='time to acc to final target velocity', type=float, default=2.0)
+    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.1)
+    parser.add_argument('--HW_alive_bonus_rew', help='alive bonus weight', type=float, default=7.0)
+    parser.add_argument('--HW_vel_reward_weight', help='velocity pen weight', type=float, default=16.0)
     parser.add_argument('--HW_side_devia_weight', help='side deviation pen weight', type=float, default=1.5)
     parser.add_argument('--HW_jl_pen_weight', help='joint limit pen weight', type=float, default=0.7)
-    parser.add_argument('--HW_alive_pen', help='alive pen weight', type=float, default=0.0)
+    parser.add_argument('--HW_alive_pen', help='alive pen weight', type=float, default=10.0)
 
     args = parser.parse_args()
     logger.reset()

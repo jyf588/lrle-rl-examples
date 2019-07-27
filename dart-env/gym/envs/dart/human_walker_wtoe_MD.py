@@ -179,7 +179,7 @@ class DartHumanWalkerMDToeEnv(dart_env.DartEnv, utils.EzPickle):
         self.rtoe = self.robot_skeleton.joint('j_toe_right').dofs[0]
 
         # MD init
-        self.modelMD_path = 'neuralnets/MD_3D_-0915&-0606&-0606&-2101&-0909_dq555&10&15_tau250&80&80&250&250_2392_jul14_25618080elu_mse.h5'   # TODO
+        self.modelMD_path = 'neuralnets/MD_3D_-0915&-0606&-0606&-2101&-0909_dq555&10&15_tau250&80&80&250&250_2392_jul14_25618080elu_mse.h5'
         self.MDWmats = []
         self.MDBmats = []
         self.MDWmats, self.MDBmats = load_model_weights(self.modelMD_path)
@@ -209,7 +209,8 @@ class DartHumanWalkerMDToeEnv(dart_env.DartEnv, utils.EzPickle):
         self.side_devia_weight = 1.5  # set outside
         self.jl_pen_weight = 0.7  # set outside
         self.alive_pen = 0.0  # set outside
-        self.use_muscle_based_cost = False  # TODO
+        self.use_muscle_based_cost = True  # TODO
+        self.up_energy = 1200.0
 
         self.final_tar_v = 1.4  # set outside
         self.tar_acc_time = 1.7  # set outside
@@ -446,8 +447,8 @@ class DartHumanWalkerMDToeEnv(dart_env.DartEnv, utils.EzPickle):
                 tau[12:17] = np.clip(tau_muscle_r, -self.action_scale[5:10], self.action_scale[5:10])
 
                 # make this similar to np.abs(a).sum()
-                self.n_tau_leg_10 += np.abs(tau[6:11] / self.action_scale[0:5]).sum()
-                self.n_tau_leg_10 += np.abs(tau[12:17] / self.action_scale[5:10]).sum()
+                self.n_tau_leg_10 += np.abs(tau_muscle_l / self.action_scale[0:5]).sum()
+                self.n_tau_leg_10 += np.abs(tau_muscle_r / self.action_scale[5:10]).sum()
 
                 # print("RR:")
                 # print(md_in_l)
@@ -576,7 +577,14 @@ class DartHumanWalkerMDToeEnv(dart_env.DartEnv, utils.EzPickle):
 
         action_pen = 0.0
         if self.use_muscle_based_cost:
-            action_pen += 0     # TODO
+            FMo = np.array(self.mus_params['Fmax'])
+            lMopt = np.array(self.mus_params['lMopt'])
+            acts = (clamped_control[:self.numMuscles] + 1.0) / 2
+            acts_l = acts[:int(self.numMuscles/2)]
+            acts_r = acts[int(self.numMuscles/2):]
+            meta_cost = np.sum(acts_l * FMo * lMopt + acts_r * FMo * lMopt)   # always positive
+            # *10 to match scale of n_tau_leg_10, up_energy is normalize factor
+            action_pen += self.energy_weight * meta_cost * 10 / self.up_energy
         else:
             action_pen += self.energy_weight * self.n_tau_leg_10
         action_pen += np.minimum(self.energy_weight, 0.4) * np.abs(a[self.numMuscles:]).sum()
