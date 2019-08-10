@@ -94,15 +94,18 @@ def train_mirror(args, num_timesteps):
     f.close()
     shutil.copyfile(env.env.env.model_file_name, logger.get_dir() + '/using_model.skel')
 
-    cur_sym_loss = 3.0
+    cur_sym_loss = 1.0
     iter_num = 0
     previous_params = None
-    previous_params = joblib.load('./policy_params_190.pkl')     # warm-start for running
+    if args.HW_muscle_add_tor_limit:
+        previous_params = joblib.load('./policy_params_190.pkl')     # warm-start for running
+    else:
+        previous_params = joblib.load('./policy_params_200_box.pkl')     # warm-start for running
     reward_threshold = None
     rollout_length_threshold = None
     pposgd_mirror.learn(env, policy_fn,
                         max_timesteps=num_timesteps,
-                        timesteps_per_batch=int(4000),
+                        timesteps_per_batch=int(2000),
                         clip_param=args.clip, entcoeff=0.0,
                         optim_epochs=10, optim_stepsize=2.5e-4, optim_batchsize=64,     # since warm-start, smaller init lr to decrease from
                         gamma=0.99, lam=0.95, schedule='linear',                        # decreasing lr
@@ -126,8 +129,8 @@ def main():
     parser.add_argument('--hsize', type=int, default=80)
     parser.add_argument('--layers', type=int, default=2)
     parser.add_argument('--clip', type=float, default=0.2)
-    parser.add_argument('--HW_muscle_add_tor_limit', help='use NN Torque Limit or Not', type=bool, default=True)
-    parser.add_argument('--HW_muscle_add_energy_cost', help='use NN Metabolic Cost or Not', type=bool, default=True)
+    parser.add_argument('--HW_muscle_add_tor_limit', help='use NN Torque Limit or Not', type=bool, default=False)
+    parser.add_argument('--HW_muscle_add_energy_cost', help='use NN Metabolic Cost or Not', type=bool, default=False)
     parser.add_argument('--HW_residue_pen_weight', help='penalize use of residue', type=float, default=2.0)
     parser.add_argument('--HW_final_tar_v', help='final target velocity', type=float, default=4.0)
     parser.add_argument('--HW_tar_acc_time', help='time to acc to final target velocity', type=float, default=2.0)
@@ -154,7 +157,7 @@ def main():
             logdir += arg[-3:]
             logdir += str(getattr(args, arg))
     logger.configure(logdir)
-    train_mirror(args, num_timesteps=int(2000 * 8 * 1600))
+    train_mirror(args, num_timesteps=int(2000 * 8 * 800))
 
 
 if __name__ == '__main__':

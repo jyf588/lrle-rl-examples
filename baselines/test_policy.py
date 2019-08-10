@@ -27,7 +27,7 @@ state_self_standardize = True
 hsize = 80
 layers = 2
 save_render_data = False
-render_path = 'render_data/' + 'humanoid_run_new'
+render_path = 'render_data/' + 'humanoid_run_box'
 
 
 def policy_fn(name, ob_space, ac_space):
@@ -136,6 +136,10 @@ if __name__ == '__main__':
     tar_time_strs = re.findall('tar_ime\d+\.\d+', sys.argv[2])
     if tar_time_strs:
         env.env.tar_acc_time = float(tar_time_strs[0][7:])
+    lr_string = re.findall('mus_mitTrue', sys.argv[2])
+    le_string = re.findall('mus_ostTrue', sys.argv[2])
+    env.env.muscle_add_tor_limit = lr_string
+    env.env.muscle_add_energy_cost = le_string
     env.env.init_params(None)
 
     o = env_wrapper.reset()

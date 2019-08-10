@@ -210,7 +210,7 @@ class DartHumanWalkerMDToeEnv(dart_env.DartEnv, utils.EzPickle):
         self.jl_pen_weight = 0.7  # set outside
         self.alive_pen = 0.0  # set outside
         self.use_muscle_based_cost = True  # TODO
-        self.up_energy = 1200.0
+        self.up_energy = 800.0
 
         self.final_tar_v = 1.4  # set outside
         self.tar_acc_time = 1.7  # set outside

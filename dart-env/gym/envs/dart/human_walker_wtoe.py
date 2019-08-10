@@ -103,12 +103,12 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
         self.rtoe = self.robot_skeleton.joint('j_toe_right').dofs[0]
 
         # muscle model init
-        self.muscle_add_tor_limit = True  # set outside   #TODO
+        self.muscle_add_tor_limit = False  # set outside
         self.modelR_path = 'neuralnets/InOutR_2_4M_3D_q-0915&-0606&-0606&-2101&-0909_dq555&10&15_tau250&80&80&250&250_2392_may25_elu.h5'
         self.RWmats = []
         self.RBmats = []
 
-        self.muscle_add_energy_cost = True  # set outside
+        self.muscle_add_energy_cost = False  # set outside
         self.modelE_path = 'neuralnets/InOutRE_ValidR4E_3D_q-0915&-0606&-0606&-2101&-0909_dq555&10&15_tau250&80&80&250&250_2392_may25_mse_fix_simple_as_volumn.h5'
         self.EWmats = []
         self.EBmats = []
@@ -196,6 +196,10 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
             self.RWmats, self.RBmats = load_model_weights(self.modelR_path)
             if self.muscle_add_energy_cost:
                 self.EWmats, self.EBmats = load_model_weights(self.modelE_path)
+        else:   # make range smaller for box, otherwise wont train at all, could try other combinations
+            self.action_scale = np.array([160.0, 60, 60, 160, 160, 160.0, 60, 60, 160, 160, 
+                                            150, 150, 100,
+                                            100, 30, 15, 30, 100, 30, 15, 30])
 
         # print(self.__dict__)
 

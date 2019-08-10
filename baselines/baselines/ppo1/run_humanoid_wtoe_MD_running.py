@@ -93,16 +93,16 @@ def train_mirror(args, num_timesteps):
     f.close()
     shutil.copyfile(env.env.env.model_file_name, logger.get_dir() + '/using_model.skel')
 
-    cur_sym_loss = 3.0
+    cur_sym_loss = 1.0
     iter_num = 0
     previous_params = None
     # previous_params = joblib.load('')
-    previous_params = joblib.load('./policy_params_240_MD.pkl')     # warm-start for running
+    previous_params = joblib.load('./policy_params_350_MD.pkl')     # warm-start for running
     reward_threshold = None
     rollout_length_threshold = None
     pposgd_mirror.learn(env, policy_fn,
                         max_timesteps=num_timesteps,
-                        timesteps_per_batch=int(4000),
+                        timesteps_per_batch=int(2000),
                         clip_param=args.clip, entcoeff=0.0,
                         optim_epochs=10, optim_stepsize=2.5e-4, optim_batchsize=64,   # since warm-start, smaller init lr to decrease from
                         gamma=0.99, lam=0.95, schedule='linear',                      # decreasing lr
@@ -129,7 +129,7 @@ def main():
 
     parser.add_argument('--HW_final_tar_v', help='final target velocity', type=float, default=4.0)
     parser.add_argument('--HW_tar_acc_time', help='time to acc to final target velocity', type=float, default=2.0)
-    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.1)
+    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.15)
     parser.add_argument('--HW_alive_bonus_rew', help='alive bonus weight', type=float, default=7.0)
     parser.add_argument('--HW_vel_reward_weight', help='velocity pen weight', type=float, default=16.0)
     parser.add_argument('--HW_side_devia_weight', help='side deviation pen weight', type=float, default=1.5)
