@@ -127,7 +127,7 @@ def main():
     parser.add_argument('--clip', type=float, default=0.2)
 
     parser.add_argument('--HW_final_tar_v', help='final target velocity', type=float, default=1.7)
-    parser.add_argument('--HW_tar_acc_time', help='time to acc to final target velocity', type=float, default=1.2)
+    parser.add_argument('--HW_tar_acc_time', help='time to acc to final target velocity', type=float, default=1.1)
     parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.3)
     parser.add_argument('--HW_alive_bonus_rew', help='alive bonus weight', type=float, default=5.0)
     parser.add_argument('--HW_vel_reward_weight', help='velocity pen weight', type=float, default=9.0)
