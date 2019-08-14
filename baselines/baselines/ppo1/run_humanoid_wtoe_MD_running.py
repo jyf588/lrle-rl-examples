@@ -60,28 +60,27 @@ def train_mirror(args, num_timesteps):
         obs_per = np.concatenate((obs_per, np.array([75, 76, -77])))
         obs_per = np.concatenate((obs_per, np.array([78, 79, -80])))
         assert env.env.obs_dim == (57 + 3 + 3 * 6 + 3)
-        assert env.env.act_dim == 21            # change action/state permutation if change action/state in env
+        assert env.env.act_dim == 97            # change action/state permutation if change action/state in env
 
     def policy_fn(name, ob_space, ac_space):
+        old_act_permute = [-86, 87, -88, 93, 94, 95, 96, 89, 90, 91, 92]
+        mus_act_l = np.arange(43)
+        mus_act_r = mus_act_l + 43
+        mus_act_l[0] = 0.001
+        act_permute = np.concatenate([mus_act_r, mus_act_l, old_act_permute])
         if env.env.env.state_self_standardize:
             return mlp_mirror_norms_policy.MlpMirrorNormsPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
                                                                 hid_size=args.hsize, num_hid_layers=args.layers,
                                                                 gmm_comp=1,
                                                                 mirror_loss=True,
                                                                 observation_permutation=obs_per,
-                                                                action_permutation=np.array(
-                                                                    [5, 6, 7, 8, 9, 0.0001, 1, 2, 3, 4,
-                                                                     -10, 11, -12,
-                                                                     17, 18, 19, 20, 13, 14, 15, 16]))
+                                                                action_permutation=act_permute)
         else:
             return mlp_mirror_policy.MlpMirrorPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
                                                      hid_size=args.hsize, num_hid_layers=args.layers, gmm_comp=1,
                                                      mirror_loss=True,
                                                      observation_permutation=obs_per,
-                                                     action_permutation=np.array(
-                                                         [5, 6, 7, 8, 9, 0.0001, 1, 2, 3, 4,
-                                                          -10, 11, -12,
-                                                          17, 18, 19, 20, 13, 14, 15, 16]))
+                                                     action_permutation=act_permute)
 
     env = bench.Monitor(env, logger.get_dir() and
                         osp.join(logger.get_dir(), "monitor.json"), allow_early_resets=True)
@@ -97,18 +96,16 @@ def train_mirror(args, num_timesteps):
     cur_sym_loss = 1.0
     iter_num = 0
     previous_params = None
-    if args.HW_muscle_add_tor_limit:
-        previous_params = joblib.load('./policy_params_190.pkl')     # warm-start for running
-    else:
-        previous_params = joblib.load('./policy_params_200_box.pkl')     # warm-start for running
+    # previous_params = joblib.load('')
+    previous_params = joblib.load('./policy_params_350_MD.pkl')     # warm-start for running
     reward_threshold = None
     rollout_length_threshold = None
     pposgd_mirror.learn(env, policy_fn,
                         max_timesteps=num_timesteps,
                         timesteps_per_batch=int(2000),
                         clip_param=args.clip, entcoeff=0.0,
-                        optim_epochs=10, optim_stepsize=2.5e-4, optim_batchsize=64,     # since warm-start, smaller init lr to decrease from
-                        gamma=0.99, lam=0.95, schedule='linear',                        # decreasing lr
+                        optim_epochs=10, optim_stepsize=2.5e-4, optim_batchsize=64,   # since warm-start, smaller init lr to decrease from
+                        gamma=0.99, lam=0.95, schedule='linear',                      # decreasing lr
                         callback=callback,
                         sym_loss_weight=cur_sym_loss,
                         init_policy_params=previous_params,
@@ -124,14 +121,12 @@ def train_mirror(args, num_timesteps):
 def main():
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--env', help='environment ID', default='DartHumanWalker-v2')
+    parser.add_argument('--env', help='environment ID', default='DartHumanWalkerMD-v2')
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
     parser.add_argument('--hsize', type=int, default=80)
     parser.add_argument('--layers', type=int, default=2)
     parser.add_argument('--clip', type=float, default=0.2)
-    parser.add_argument('--HW_muscle_add_tor_limit', help='use NN Torque Limit or Not', type=bool, default=False)
-    parser.add_argument('--HW_muscle_add_energy_cost', help='use NN Metabolic Cost or Not', type=bool, default=False)
-    parser.add_argument('--HW_residue_pen_weight', help='penalize use of residue', type=float, default=2.0)
+
     parser.add_argument('--HW_final_tar_v', help='final target velocity', type=float, default=4.0)
     parser.add_argument('--HW_tar_acc_time', help='time to acc to final target velocity', type=float, default=2.0)
     parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.15)
@@ -148,7 +143,7 @@ def main():
     now = datetime.datetime.now()
     stampstring = now.isoformat()
 
-    logdir = 'data/wtoe_meta0700_20080_ppo_noAssist_adds' + stampstring[:16] + args.env + '_' + str(
+    logdir = 'data/wtoe_MD_20080_ppo_noAssist_adds' + stampstring[:16] + args.env + '_' + str(
         args.seed) + '_' + str(args.hsize) + '-' + str(args.layers) + '_' + str(args.clip)
     for arg in vars(args):
         if arg[:3] == 'HW_':
@@ -157,7 +152,7 @@ def main():
             logdir += arg[-3:]
             logdir += str(getattr(args, arg))
     logger.configure(logdir)
-    train_mirror(args, num_timesteps=int(2000 * 8 * 800))
+    train_mirror(args, num_timesteps=int(2000 * 8 * 1600))
 
 
 if __name__ == '__main__':

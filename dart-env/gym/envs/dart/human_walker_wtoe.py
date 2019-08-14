@@ -4,6 +4,7 @@ import numpy as np
 from gym import utils
 from gym.envs.dart import dart_env
 import os
+import json
 
 import pydart2 as pydart
 
@@ -61,6 +62,10 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
         self.action_scale = np.array([200.0, 80, 80, 250, 250, 200, 80, 80, 250, 250,
                                       150, 150, 100,
                                       100, 30, 15, 30, 100, 30, 15, 30])
+        #
+        # self.action_scale = np.array([160.0, 60, 60, 160, 160, 160.0, 60, 60, 160, 160,
+        #                               150, 150, 100,
+        #                               100, 30, 15, 30, 100, 30, 15, 30])
 
         self.previous_control = None
         self.constrain_dcontrol = 1.0
@@ -98,12 +103,12 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
         self.rtoe = self.robot_skeleton.joint('j_toe_right').dofs[0]
 
         # muscle model init
-        self.muscle_add_tor_limit = True  # set outside   #TODO
+        self.muscle_add_tor_limit = False  # set outside
         self.modelR_path = 'neuralnets/InOutR_2_4M_3D_q-0915&-0606&-0606&-2101&-0909_dq555&10&15_tau250&80&80&250&250_2392_may25_elu.h5'
         self.RWmats = []
         self.RBmats = []
 
-        self.muscle_add_energy_cost = True  # set outside
+        self.muscle_add_energy_cost = False  # set outside
         self.modelE_path = 'neuralnets/InOutRE_ValidR4E_3D_q-0915&-0606&-0606&-2101&-0909_dq555&10&15_tau250&80&80&250&250_2392_may25_mse_fix_simple_as_volumn.h5'
         self.EWmats = []
         self.EBmats = []
@@ -151,6 +156,16 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
         self.vel = None
         self.vel_cache = []
 
+        self.save_render_data = False
+        self.render_path = 'render_data/' + 'humanoid_walkORrun_new'
+        self.render_step = 0
+        import errno
+        try:
+            os.makedirs(self.render_path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
         utils.EzPickle.__init__(self)
 
     def init_env(self):
@@ -181,8 +196,45 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
             self.RWmats, self.RBmats = load_model_weights(self.modelR_path)
             if self.muscle_add_energy_cost:
                 self.EWmats, self.EBmats = load_model_weights(self.modelE_path)
+        else:   # make range smaller for box, otherwise wont train at all, could try other combinations
+            self.action_scale = np.array([160.0, 60, 60, 160, 160, 160.0, 60, 60, 160, 160, 
+                                            150, 150, 100,
+                                            100, 30, 15, 30, 100, 30, 15, 30])
 
         # print(self.__dict__)
+
+    def save_one_frame_shape(self, fpath, step):
+        robo_skel = self.robot_skeleton
+        data = []
+        for b in robo_skel.bodynodes:
+            if len(b.shapenodes) == 0:
+                continue
+            if 'cover' in b.name:
+                continue
+            shape_transform = b.T.dot(b.shapenodes[0].relative_transform()).tolist()
+            # pos = trans.translation_from_matrix(shape_transform)
+            # rot = trans.euler_from_matrix(shape_transform)
+            shape_class = str(type(b.shapenodes[0].shape))
+            if 'Mesh' in shape_class:
+                stype = 'Mesh'
+                path = b.shapenodes[0].shape.path()
+                scale = b.shapenodes[0].shape.scale().tolist()
+                sub_data = [path, scale]
+            elif 'Box' in shape_class:
+                stype = 'Box'
+                sub_data = b.shapenodes[0].shape.size().tolist()
+            elif 'Ellipsoid' in shape_class:
+                stype = 'Ellipsoid'
+                sub_data = b.shapenodes[0].shape.size().tolist()
+            elif 'MultiSphere' in shape_class:
+                stype = 'MultiSphere'
+                sub_data = b.shapenodes[0].shape.spheres()
+                for s in range(len(sub_data)):
+                    sub_data[s]['pos'] = sub_data[s]['pos'].tolist()
+
+            data.append([stype, b.name, shape_transform, sub_data])
+        file = fpath + '/frame_' + str(step) + '.txt'
+        json.dump(data, open(file, 'w'))
 
     def do_simulation(self, tau, n_frames):
         self.total_residue = 0.0
@@ -198,6 +250,11 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
             if len(self.dq_cache_l) > 5:
                 self.dq_cache_l.pop(0)
                 self.dq_cache_r.pop(0)
+
+            if frame % 5 == 0:
+                if self.save_render_data:
+                    self.save_one_frame_shape(self.render_path, self.render_step)
+                    self.render_step += 1
 
             if self.muscle_add_tor_limit:
                 if frame % 5 == 0:  # Assume residue will not change in this 0.01s
@@ -484,6 +541,8 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
 
         self.total_residue = None
         self.meta_cost = None
+
+        self.render_step = 0
 
         return self._get_obs()
 

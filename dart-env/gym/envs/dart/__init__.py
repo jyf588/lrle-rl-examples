@@ -3,3 +3,4 @@ from gym.envs.dart.dart_env import DartEnv
 # message if Dart is not installed correctly
 
 from gym.envs.dart.human_walker_wtoe import DartHumanWalkerToeEnv
+from gym.envs.dart.human_walker_wtoe_MD import DartHumanWalkerMDToeEnv
