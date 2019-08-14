@@ -148,19 +148,58 @@ There are two versions of the code in two separate branches. The master branch i
 Walking training: 
 ```bash
     cd baselines
+```
+LR+LE:
+```bash
+    mpirun -np 8 python -m baselines.ppo1.run_humanoid_wtoe_walking --seed=some_number --HW_muscle_add_tor_limit=True --HW_muscle_add_energy_cost=True
+```
+LR:
+```bash
+    mpirun -np 8 python -m baselines.ppo1.run_humanoid_wtoe_walking --seed=some_number --HW_muscle_add_tor_limit=True
+```
+BOX:
+```bash
     mpirun -np 8 python -m baselines.ppo1.run_humanoid_wtoe_walking --seed=some_number
 ```
-Running training:
+AMTU:
 ```bash
-    mpirun -np 8 python -m baselines.ppo1.run_humanoid_wtoe_running --seed=some_number
+    mpirun -np 8 python -m baselines.ppo1.run_humanoid_wtoe_MD_walking --seed=some_number
 ```
+
+Running training:
+
+LR+LE:
+```bash
+    mpirun -np 8 python -m baselines.ppo1.run_humanoid_wtoe_running --seed=some_number --HW_muscle_add_tor_limit=True --HW_muscle_add_energy_cost=True
+```
+LR:
+```bash
+    mpirun -np 8 python -m baselines.ppo1.run_humanoid_wtoe_running --seed=some_number --HW_muscle_add_tor_limit=True
+```
+BOX:
+```bash
+    mpirun -np 8 python -m baselines.ppo1.run_humanoid_wtoe_running --seed=some_number --HW_energy_weight=0.2 --HW_alive_pen=7.0
+```
+(The default params for LR+LE could not train a successful locomotion policy for BOX.)
+
+AMTU:
+```bash
+    mpirun -np 8 python -m baselines.ppo1.run_humanoid_wtoe_MD_running --seed=some_number
+```
+
 Testing and visualizing trained policies:
 ```bash
     python test_policy.py DartHumanWalker-v2 PATH_TO_POLICY
 ```
+Or for AMTU walking/running
+```bash
+    python test_policy.py DartHumanWalkerMD-v2 PATH_TO_POLICY
+```
 The agent learns to walk/run in several hundred iterations, but letting it train longer usually gives more natural gaits.
 
-Note: reading the following few files (instead of the whole repo) will suffice if you want to learn about the implementation details: baselines/baselines/ppo1/, dart-env/gym/envs/dart
+Note 1: reading the following few files (instead of the whole repo) will suffice if you want to learn about the implementation details: baselines/baselines/ppo1/, dart-env/gym/envs/dart
+
+Note 2: there is a bug with the argparse library: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse, and setting --HW_muscle_add_tor_limit=False will not work.
 
 ### 2. Release-old branch:
 
@@ -185,9 +224,7 @@ AMTU:
   mpirun -np 8 python -m baselines.ppo1.run_humanoid_MD_staged_learning --seed=xxx --HW_energy_weight=0.5
 ```
 
-Note 1: there is a bug with the argparse library: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse, and setting --HW_muscle_add_tor_limit=False will not work.
-
-Note 2: argument —HW_energy_weight<0.4 will usually result in hopping motion
+Note: argument —HW_energy_weight<0.4 will usually result in hopping motion
 
 Running training:
 
