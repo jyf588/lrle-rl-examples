@@ -523,7 +523,7 @@ class DartHumanWalkerMDToeEnv(dart_env.DartEnv, utils.EzPickle):
 
     def is_broke_sim(self):
         s = self.state_vector()
-        return not (np.isfinite(s).all() and (np.abs(s[3:]) < 10).all())
+        return not (np.isfinite(s).all() and (np.abs(s[3:]) < 20).all())
 
     def _step(self, a):
         # smoothly increase the target velocity

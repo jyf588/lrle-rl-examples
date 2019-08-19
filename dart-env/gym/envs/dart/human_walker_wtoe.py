@@ -62,10 +62,6 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
         self.action_scale = np.array([200.0, 80, 80, 250, 250, 200, 80, 80, 250, 250,
                                       150, 150, 100,
                                       100, 30, 15, 30, 100, 30, 15, 30])
-        #
-        # self.action_scale = np.array([160.0, 60, 60, 160, 160, 160.0, 60, 60, 160, 160,
-        #                               150, 150, 100,
-        #                               100, 30, 15, 30, 100, 30, 15, 30])
 
         self.previous_control = None
         self.constrain_dcontrol = 1.0
@@ -196,8 +192,8 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
             self.RWmats, self.RBmats = load_model_weights(self.modelR_path)
             if self.muscle_add_energy_cost:
                 self.EWmats, self.EBmats = load_model_weights(self.modelE_path)
-        else:   # make range smaller for box, otherwise wont train at all, could try other combinations
-            self.action_scale = np.array([160.0, 60, 60, 160, 160, 160.0, 60, 60, 160, 160, 
+        else:   # make range smaller for BOX, otherwise wont train at all, one could try other combinations
+            self.action_scale = np.array([160.0, 80, 80, 160, 160, 160.0, 80, 80, 160, 160, 
                                             150, 150, 100,
                                             100, 30, 15, 30, 100, 30, 15, 30])
 
@@ -366,7 +362,7 @@ class DartHumanWalkerToeEnv(dart_env.DartEnv, utils.EzPickle):
 
     def is_broke_sim(self):
         s = self.state_vector()
-        return not (np.isfinite(s).all() and (np.abs(s[3:]) < 10).all())
+        return not (np.isfinite(s).all() and (np.abs(s[3:]) < 20).all())
 
     def _step(self, a):
         posbefore = self.robot_skeleton.com()[0]
