@@ -128,8 +128,8 @@ def main():
 
     parser.add_argument('--HW_final_tar_v', help='final target velocity', type=float, default=1.7)
     parser.add_argument('--HW_tar_acc_time', help='time to acc to final target velocity', type=float, default=1.1)
-    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.3)
-    parser.add_argument('--HW_alive_bonus_rew', help='alive bonus weight', type=float, default=5.0)
+    parser.add_argument('--HW_energy_weight', help='energy pen weight', type=float, default=0.5)
+    parser.add_argument('--HW_alive_bonus_rew', help='alive bonus weight', type=float, default=7.0)
     parser.add_argument('--HW_vel_reward_weight', help='velocity pen weight', type=float, default=9.0)
     parser.add_argument('--HW_side_devia_weight', help='side deviation pen weight', type=float, default=1.5)
     parser.add_argument('--HW_jl_pen_weight', help='joint limit pen weight', type=float, default=0.7)

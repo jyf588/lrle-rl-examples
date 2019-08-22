@@ -112,7 +112,7 @@ def train_mirror(args, num_timesteps):
                         callback=callback,
                         sym_loss_weight=cur_sym_loss,
                         init_policy_params=previous_params,
-                        reward_drop_bound=None,
+                        reward_drop_bound=500,
                         rollout_length_threshold=rollout_length_threshold,
                         policy_scope='pi' + str(iter_num),
                         return_threshold=reward_threshold,
@@ -157,7 +157,7 @@ def main():
             logdir += arg[-3:]
             logdir += str(getattr(args, arg))
     logger.configure(logdir)
-    train_mirror(args, num_timesteps=int(2000 * 8 * 800))
+    train_mirror(args, num_timesteps=int(2000 * 8 * 1600))
 
 
 if __name__ == '__main__':
